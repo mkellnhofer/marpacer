@@ -1,0 +1,27 @@
+/* @theme test */
+
+/*
+ * A small theme for the test decks: builds on Marp's default so the presenter's
+ * theme handling (`--theme-set`, `@import`) gets exercised, and tints the
+ * background so it is obvious at a glance that a custom theme is in use.
+ */
+
+@import 'default';
+
+section {
+  background: #fbf7ff;
+  color: #221b2e;
+}
+
+section h1,
+section h2 {
+  color: #5b2fb3;
+}
+
+section code {
+  background: #efe7fb;
+}
+
+section footer {
+  color: #7a6b96;
+}

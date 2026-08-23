@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" width="320" height="120" role="img" aria-label="console drives deck">
+  <rect x="4" y="24" width="130" height="60" rx="10" fill="#efe7fb" stroke="#5b2fb3" stroke-width="2"/>
+  <rect x="186" y="24" width="130" height="60" rx="10" fill="#fff" stroke="#5b2fb3" stroke-width="2"/>
+  <text x="69" y="60" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#221b2e">console</text>
+  <text x="251" y="60" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#221b2e">deck</text>
+  <path d="M138 46 H182" stroke="#5b2fb3" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M182 62 H138" stroke="#5b2fb3" stroke-width="2" marker-end="url(#a)"/>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="#5b2fb3"/>
+    </marker>
+  </defs>
+</svg>
