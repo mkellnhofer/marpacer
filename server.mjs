@@ -9,8 +9,7 @@ import { createServer } from 'node:http';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Marpit } from '@marp-team/marpit';
-import hljs from 'highlight.js';
+import { Marp } from '@marp-team/marp-core';
 
 const toolDir = dirname(fileURLToPath(import.meta.url));
 
@@ -97,25 +96,25 @@ function createRenderer(root, themeDir) {
 }
 
 /**
- * A Marpit instance carrying the tool's fallback theme plus every `*.css` in
- * the deck folder's theme directory. Decks pick one with `theme:` in their
- * front matter, and custom themes can `@import 'default'`.
+ * A Marp instance carrying its own built-in themes (`default`, `gaia`,
+ * `uncover`) plus every `*.css` in the deck folder's theme directory. Decks
+ * pick one with `theme:` in their front matter, and custom themes can build on
+ * a built-in one with `@import 'default'`.
  */
-async function createEngine(themeDir) {
-  const marpit = new Marpit({
+export async function createEngine(themeDir) {
+  const marp = new Marp({
     inlineSVG: true, // wraps each slide in an SVG, which is what makes it scale
-    markdown: { html: true, breaks: false, highlight },
-  });
+    html: true, // decks are local files you wrote; render their HTML as-is
 
-  marpit.themeSet.default = marpit.themeSet.add(
-    await readFile(join(toolDir, 'themes', 'default.css'), 'utf8'),
-  );
+    // `script` is left at its default: Marp inlines its browser helper, which
+    // drives auto-scaling (`<!-- fit -->`) and polyfills SVG slides in Safari.
+  });
 
   if (themeDir) {
     for (const name of await readdir(themeDir)) {
       if (extname(name) !== '.css') continue;
       try {
-        marpit.themeSet.add(await readFile(join(themeDir, name), 'utf8'));
+        marp.themeSet.add(await readFile(join(themeDir, name), 'utf8'));
       } catch (error) {
         // A CSS file without `/* @theme name */` is not a theme — skip it.
         console.warn(`  theme skipped: ${name} — ${error.message}`);
@@ -123,19 +122,7 @@ async function createEngine(themeDir) {
     }
   }
 
-  return marpit;
-}
-
-/** Fenced code gets highlight.js markup; the themes colour the `.hljs-*` classes. */
-function highlight(code, lang) {
-  if (lang && hljs.getLanguage(lang)) {
-    try {
-      return hljs.highlight(code, { language: lang }).value;
-    } catch {
-      // Fall through to Markdown-it's own escaping.
-    }
-  }
-  return '';
+  return marp;
 }
 
 /** The deck window's markup, styles and script, read once. */
@@ -145,8 +132,8 @@ let template;
  * Render one deck's Markdown into a page for the deck window, by dropping the
  * slides and their theme into `deck.template.html`.
  */
-async function renderDeck(marpit, markdown, { title, syncId }) {
-  const { html, css } = marpit.render(markdown);
+export async function renderDeck(marp, markdown, { title, syncId }) {
+  const { html, css } = marp.render(markdown);
 
   template ??= await readFile(join(toolDir, 'deck.template.html'), 'utf8');
   const values = { title: escapeHtml(title), themeCss: css, syncId: escapeHtml(syncId), slides: html };

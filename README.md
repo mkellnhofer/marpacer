@@ -56,12 +56,16 @@ silently desyncs every stamp after it.
 
 ## Themes and rendering
 
-A deck picks its theme with `theme:` in front matter, resolved against the `--theme-set`
-folder. Marpit ships no themes of its own, so this tool provides a plain `default` that
-decks fall back to and that custom themes can build on with `@import 'default'`.
+A deck picks its theme with `theme:` in front matter. Marp's own `default`, `gaia` and
+`uncover` come built in, and every `*.css` in the `--theme-set` folder is added alongside
+them, so a custom theme can build on a built-in one with `@import 'default'`.
 
-Fenced code is highlighted with highlight.js, whose `.hljs-*` classes both the bundled
-theme and any custom theme can colour. Two things Marp's full renderer does that this one
-does not: math (`$$…$$`) and Marp's auto-scaling directives such as `<!-- fit -->`.
+Everything else marp-core does works too, because it *is* marp-core: syntax highlighting,
+math (`$$…$$`, rendered by MathJax), and auto-scaling directives such as `<!-- fit -->`.
+Marp's browser helper is inlined into each deck page, which is what makes auto-scaling
+work and what keeps SVG slides correct in Safari.
+
+marp-core is the tool's only runtime dependency. It is a chunky one — roughly 73 MB
+installed, most of that the MathJax and KaTeX engines it bundles for math support.
 
 Raw HTML in decks is rendered as written — these are your own files, presented locally.

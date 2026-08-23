@@ -125,7 +125,7 @@ console.log(`marp-presenter  http://localhost:${port}/`);
 
 const decks = await indexer();
 
-console.log(`  decks   ${root} (${decks.length} found${themeSet ? `, themes from ${themeSet}` : ''})`);
+console.log(`  decks   ${root} (${decks.length} found${themes ? `, themes from ${themes}` : ''})`);
 
 const unplanned = decks.filter((deck) => !deck.hasPlan);
 if (unplanned.length > 0) {
