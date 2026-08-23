@@ -41,6 +41,7 @@ export function createIndexer(root, includeIgnored) {
           deck: {
             ...deck,
             id: deckId(file),
+            syncId: syncId(file),
             url: `/decks/${file.split(sep).map(encodeURIComponent).join('/')}`,
           },
         };
@@ -276,3 +277,6 @@ function round(value) {
 
 /** The deck's ID: Its path relative to the deck folder, without the extension. */
 const deckId = (file) => file.split(sep).join('/').replace(/\.md$/, '');
+
+/** The deck's sync ID: Used as a localStorage key suffix, so keep it plain. */
+const syncId = (file) => deckId(file).replace(/[^a-zA-Z0-9]+/g, '-');

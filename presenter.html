@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>marp-presenter</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1c2027;
+    --panel-2: #232833;
+    --line: #2e3440;
+    --text: #e6e9ef;
+    --muted: #8b93a3;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --bad: #f85149;
+    --ahead: #58a6ff;
+    --accent: #7c8cff;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  /* ---- header ------------------------------------------------------- */
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .deck-title { font-size: 18px; font-weight: 600; }
+
+  .spacer { flex: 1; }
+
+  .chip {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--muted);
+  }
+  .chip.over  { color: var(--bad);  border-color: var(--bad); }
+  .chip.tight { color: var(--warn); border-color: var(--warn); }
+  .chip.ok    { color: var(--ok);   border-color: var(--ok); }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  button:hover { background: #2b313d; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #10131a; }
+  button.primary:hover { filter: brightness(1.1); }
+  button.armed { background: var(--bad); border-color: var(--bad); color: #10131a; }
+  button.back { padding: 8px 13px; font-size: 17px; line-height: 1.15; }
+
+  /* ---- stat cards ---------------------------------------------------- */
+
+  main {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    gap: 16px;
+    padding: 16px 20px;
+    align-items: start;
+  }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+
+  .stage { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .rail { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+  /* Slide previews are live deck windows, driven by their URL hash. */
+  .preview {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .preview iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    /* The console's buttons are the only way to navigate — a stray click or
+       scroll inside a preview would desync it from the beamer. */
+    pointer-events: none;
+  }
+  .preview .end {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .preview.at-end .end { display: flex; }
+  .preview.at-end iframe { visibility: hidden; }
+
+  .nav { display: flex; align-items: center; gap: 14px; }
+  .nav button { padding: 14px 26px; font-size: 16px; }
+  .nav button:disabled { opacity: .35; cursor: default; }
+  .nav-meta { flex: 1; min-width: 0; text-align: center; }
+
+  .notes-card { flex: 1; min-height: 96px; display: flex; flex-direction: column; }
+  .notes {
+    margin-top: 8px;
+    overflow: auto;
+    max-height: 22vh;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  .notes.empty { color: var(--muted); font-style: italic; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+
+  .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+  }
+
+  .big { font-size: 40px; font-weight: 700; line-height: 1.05; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  .drift.ok    { color: var(--ok); }
+  .drift.warn  { color: var(--warn); }
+  .drift.bad   { color: var(--bad); }
+  .drift.ahead { color: var(--ahead); }
+
+  .idle { opacity: .35; }
+
+  /* ---- current slide ------------------------------------------------- */
+
+  .counter { font-size: 13px; }
+
+  .bar {
+    position: relative;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    overflow: hidden;
+  }
+  .bar > i { display: block; height: 100%; background: var(--ok); transition: width .2s linear; }
+  .bar.warn > i { background: var(--warn); }
+  .bar.bad  > i { background: var(--bad); }
+
+  .bar-legend { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; color: var(--muted); }
+
+  /* Where the plan says you should be, marked on the whole-slides bar. */
+  .bar > b {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--text);
+    opacity: .75;
+  }
+
+  /* Shown when a deck has no usable timing plan. */
+  .banner {
+    margin: 12px 20px 0;
+    padding: 10px 14px;
+    border: 1px solid var(--bad);
+    border-radius: 10px;
+    background: #f8514914;
+    font-size: 13px;
+    max-height: 22vh;
+    overflow: auto;
+  }
+  .banner b { color: var(--bad); }
+  .banner.info { border-color: var(--line); background: var(--panel); }
+  .banner.info b { color: var(--text); }
+  .banner ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }
+
+  /* ---- deck picker --------------------------------------------------- */
+
+  .picker { padding: 28px 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
+  .picker h1 { font-size: 22px; margin: 0 0 4px; }
+  .picker p { color: var(--muted); margin: 0 0 22px; }
+  .picker p.root { font-size: 13px; margin-top: -16px; }
+
+  .deck-card .path { font-size: 12px; opacity: .6; }
+  .deck-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .deck-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+  .deck-card .row { display: flex; align-items: center; gap: 8px; width: 100%; }
+  .deck-card .title { font-size: 16px; }
+  .deck-card .meta { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+  .error { color: var(--bad); }
+  code { background: var(--panel-2); border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { computeStatus, formatClock } from './timing.js';
+
+const app = document.getElementById('app');
+const params = new URLSearchParams(location.search);
+
+/** Deterministic per deck, so reloading either window rejoins the same channel. */
+const syncKey = (deck) => `bespoke-marp-sync-${deck.syncId}`;
+const timerKey = (deck) => `presenter-timer-${deck.syncId}`;
+
+let data;
+try {
+  const response = await fetch(`/api/decks?t=${Date.now()}`);
+  if (!response.ok) throw new Error(`/api/decks → HTTP ${response.status}`);
+  data = await response.json();
+} catch (error) {
+  app.innerHTML = `<div class="picker">
+    <h1 class="error">No decks</h1>
+    <p>${error.message}. Start the console with
+    <code>marp-presenter &lt;folder with decks&gt;</code> — it serves this page and
+    renders the decks itself.</p>
+  </div>`;
+  throw error;
+}
+
+const deck = data.decks.find((d) => d.id === params.get('deck'));
+deck ? runConsole(deck) : renderPicker();
+
+// ---------------------------------------------------------------- picker
+
+function renderPicker() {
+  app.innerHTML = `<div class="picker">
+    <h1>Presenter console</h1>
+    <p>${escapeHtml(data.root)}</p>
+    <div class="deck-list">${data.decks
+      .map(
+        (d) => `<button class="card deck-card" data-id="${escapeHtml(d.id)}">
+          <span class="row">
+            <span class="title">${escapeHtml(d.title)}</span>
+          </span>
+          <span class="row">
+            <span class="meta num">${
+              d.hasPlan ? `${formatClock(d.estimatedMinutes)} · ${d.slides.length} slides` : `${d.slides.length} slides`
+            }</span>
+            <span class="spacer"></span>
+            ${
+              d.hasPlan
+                ? `<span class="chip ${d.status}">${d.status}</span>`
+                : `<span class="chip ${d.errors.length ? 'over' : ''}">${
+                    d.errors.length ? 'stamps broken' : 'no plan'
+                  }</span>`
+            }
+          </span>
+          <span class="meta path">${escapeHtml(d.file)}</span>
+        </button>`,
+      )
+      .join('')}</div>
+  </div>`;
+
+  for (const button of app.querySelectorAll('.deck-card')) {
+    button.onclick = () => {
+      location.search = `?deck=${encodeURIComponent(button.dataset.id)}`;
+    };
+  }
+}
+
+// --------------------------------------------------------------- console
+
+function runConsole(deck) {
+  const SYNC = syncKey(deck);
+  const TIMER = timerKey(deck);
+  const slideCount = deck.slides.length;
+
+  // Without a usable plan the console still runs — previews, notes, navigation
+  // and the elapsed clock — it just has nothing to compare the clock against.
+  const hasPlan = deck.hasPlan;
+
+  // ---- timer, persisted so an accidental reload never loses the clock ----
+
+  const blank = { running: false, startedAt: 0, accMs: 0, index: 0, slideEnteredMs: 0 };
+  let timer = { ...blank, ...readJSON(TIMER) };
+
+  const elapsedMs = () => timer.accMs + (timer.running ? Date.now() - timer.startedAt : 0);
+  const saveTimer = () => localStorage.setItem(TIMER, JSON.stringify(timer));
+
+  function toggleTimer() {
+    if (timer.running) {
+      timer = { ...timer, running: false, accMs: elapsedMs(), startedAt: 0 };
+    } else {
+      timer = { ...timer, running: true, startedAt: Date.now() };
+    }
+    saveTimer();
+    render();
+  }
+
+  function resetTimer() {
+    timer = { ...blank };
+    saveTimer();
+    jumpTo(0);
+    render();
+  }
+
+  // ---- slide position, shared with the deck window through localStorage ----
+
+  // While the console is re-pointing a freshly opened deck window, ignore what
+  // that window says — it announces slide 1 on load and would drag us back.
+  let suppressUntil = 0;
+
+  function readSync() {
+    const state = readJSON(SYNC);
+    return typeof state.index === 'number' ? state.index : 0;
+  }
+
+  function writeSync(index) {
+    // Merge: bespoke keeps its own bookkeeping (reference count) in here.
+    localStorage.setItem(SYNC, JSON.stringify({ ...readJSON(SYNC), index, fragmentIndex: 0 }));
+  }
+
+  function jumpTo(index) {
+    const clamped = Math.min(Math.max(index, 0), deck.slides.length - 1);
+    writeSync(clamped);
+    setIndex(clamped);
+  }
+
+  function setIndex(index) {
+    if (index === timer.index) return;
+    // Remember when this slide went up, in elapsed terms, so pausing is honest.
+    timer = { ...timer, index, slideEnteredMs: elapsedMs() };
+    saveTimer();
+    render();
+  }
+
+  function followDeck() {
+    if (Date.now() < suppressUntil) return;
+    setIndex(readSync());
+  }
+
+  // The deck window fires `storage`; polling covers the cases where it doesn't.
+  window.addEventListener('storage', (event) => {
+    if (event.key === SYNC) followDeck();
+  });
+  setInterval(followDeck, 500);
+
+  function openDeck() {
+    const target = timer.index;
+    window.open(`${deck.url}?sync=${deck.syncId}`, `deck-${deck.syncId}`);
+    if (target === 0) return; // a fresh deck window already opens on slide 1
+
+    // Reopening mid-lecture: the new window starts on slide 1 and only reacts to
+    // *changes* of the sync key, so step off the target value and back onto it.
+    suppressUntil = Date.now() + 3000;
+    setTimeout(() => {
+      writeSync(0);
+      setTimeout(() => {
+        writeSync(target);
+        suppressUntil = 0;
+      }, 200);
+    }, 1500);
+  }
+
+  // ---- chrome ----
+
+  app.innerHTML = `
+    <header>
+      <button id="back" class="back" title="Back to all decks">←</button>
+      <span class="deck-title">${escapeHtml(deck.title)}</span>
+      ${
+        hasPlan
+          ? `<span class="chip num">plan ${formatClock(deck.estimatedMinutes)}</span>
+             <span class="chip ${deck.status}" id="deck-status">${deck.status}</span>`
+          : '<span class="chip">no timing plan</span>'
+      }
+      <span class="spacer"></span>
+      <button id="open">Open deck window</button>
+      <button id="toggle" class="primary"></button>
+      <button id="reset">Reset</button>
+    </header>
+    ${
+      hasPlan
+        ? ''
+        : `<div class="banner ${deck.errors.length ? '' : 'info'}">
+             <b>Running without a timing plan.</b>
+             ${
+               deck.errors.length
+                 ? `This deck's timing stamps do not hold together:
+                    <ul>${deck.errors.map((error) => `<li>${escapeHtml(error)}</li>`).join('')}</ul>`
+                 : 'The deck carries no <code>timing-deck</code> / <code>timing-slide</code> comments, so drift and pace are hidden.'
+             }
+           </div>`
+    }
+    <main>
+      <section class="stage">
+        <div class="preview">
+          <iframe id="current-frame" title="Current slide"></iframe>
+        </div>
+        <div class="nav">
+          <button id="prev">◀ Prev</button>
+          <div class="nav-meta">
+            <span class="label num counter" id="counter"></span>
+          </div>
+          <button id="next-slide">Next ▶</button>
+        </div>
+        <div class="card notes-card">
+          <div class="label">Notes</div>
+          <div class="notes" id="notes"></div>
+        </div>
+      </section>
+
+      <aside class="rail">
+        <div class="stats">
+          <div class="card">
+            <div class="label">Elapsed</div>
+            <div class="big num" id="elapsed">0:00</div>
+            <div class="sub num" id="remaining"></div>
+          </div>
+          <div class="card plan-only">
+            <div class="label">Drift</div>
+            <div class="big num drift" id="drift">0:00</div>
+            <div class="sub" id="drift-label"></div>
+          </div>
+        </div>
+        <div class="card plan-only">
+          <div class="label">Pace needed for the remaining slides</div>
+          <div class="big num" id="pace"></div>
+          <div class="sub" id="pace-label"></div>
+        </div>
+        <div class="card plan-only">
+          <div class="label">This slide</div>
+          <div class="bar" id="slide-bar" style="margin-top: 10px"><i></i></div>
+          <div class="bar-legend">
+            <span class="num" id="on-slide"></span>
+            <span class="num" id="slide-plan"></span>
+          </div>
+        </div>
+        <div class="card plan-only">
+          <div class="label">Whole slides</div>
+          <div class="bar" id="deck-bar" style="margin-top: 10px"><i></i><b id="deck-tick"></b></div>
+          <div class="bar-legend">
+            <span class="num" id="deck-position"></span>
+            <span class="num" id="deck-left"></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label">Next</div>
+          <div class="preview" id="next-preview" style="margin-top: 10px">
+            <iframe id="next-frame" title="Next slide"></iframe>
+            <div class="end">End of slides</div>
+          </div>
+          <div class="sub" id="next-label"></div>
+        </div>
+      </aside>
+    </main>`;
+
+  const $ = (id) => document.getElementById(id);
+  // The clock is stored per deck, so stepping out to the picker and back
+  // resumes it exactly where it was.
+  $('back').onclick = () => location.assign('/');
+  $('open').onclick = openDeck;
+  $('toggle').onclick = toggleTimer;
+  $('prev').onclick = () => jumpTo(timer.index - 1);
+  $('next-slide').onclick = () => jumpTo(timer.index + 1);
+
+  const showCurrent = drivePreview($('current-frame'), deck.url, timer.index + 1);
+  const showNext = drivePreview($('next-frame'), deck.url, Math.min(timer.index + 2, slideCount));
+  armReset($('reset'), resetTimer);
+
+  if (!hasPlan) {
+    for (const card of document.querySelectorAll('.plan-only')) card.remove();
+    document.querySelector('.stats').style.gridTemplateColumns = '1fr';
+  }
+
+  // The deck's own note on where it tends to slip — worth a hover, not a panel.
+  // The chip it hangs on only exists when there is a plan.
+  if (hasPlan) $('deck-status').title = deck.note ?? '';
+
+  document.addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === 'ArrowRight') jumpTo(timer.index + 1);
+    else if (event.key === 'ArrowLeft') jumpTo(timer.index - 1);
+    else if (event.key === 's') toggleTimer();
+    else return;
+    event.preventDefault();
+  });
+
+  // ---- render ----
+
+  function render() {
+    const elapsedMin = elapsedMs() / 60000;
+    const idle = !timer.running && timer.accMs === 0;
+    const current = deck.slides[Math.min(timer.index, slideCount - 1)];
+    const next = deck.slides[timer.index + 1] ?? null;
+
+    $('toggle').textContent = timer.running ? 'Pause' : timer.accMs === 0 ? 'Start' : 'Resume';
+
+    $('elapsed').textContent = formatClock(elapsedMin);
+    $('elapsed').classList.toggle('idle', idle);
+
+    $('counter').textContent = `Slide ${current.index} of ${slideCount}`;
+
+    $('prev').disabled = timer.index === 0;
+    $('next-slide').disabled = timer.index === slideCount - 1;
+
+    showCurrent(current.index);
+    $('next-preview').classList.toggle('at-end', !next);
+    if (next) showNext(next.index);
+    // The preview shows the slide itself; only its budget is worth spelling out —
+    // and only when the plan it came from is one we trust.
+    $('next-label').textContent =
+      hasPlan && next && next.minutes !== null ? `planned ${formatClock(next.minutes)}` : '';
+
+    const notes = $('notes');
+    notes.textContent = current.notes || 'No notes on this slide.';
+    notes.classList.toggle('empty', !current.notes);
+
+    if (!hasPlan) return;
+
+    const status = computeStatus(deck, timer.index, elapsedMin);
+    $('remaining').textContent =
+      status.remainingClock >= 0
+        ? `of ${formatClock(deck.estimatedMinutes)} planned`
+        : `over the ${formatClock(deck.estimatedMinutes)} plan`;
+
+    const drift = $('drift');
+    drift.textContent = status.drift === 0 ? '0:00' : formatClock(status.drift);
+    drift.className = `big num drift ${status.level}`;
+    drift.classList.toggle('idle', idle);
+    $('drift-label').textContent = {
+      ok: 'on plan',
+      ahead: `ahead of plan by ${formatClock(-status.drift)}`,
+      warn: `behind plan by ${formatClock(status.drift)}`,
+      bad: `behind plan by ${formatClock(status.drift)} — cut something`,
+    }[status.level];
+
+    // How much faster than planned the rest of the deck has to run.
+    const pace = $('pace');
+    if (status.remainingPlan <= 0) {
+      pace.textContent = 'done';
+      pace.className = 'big num';
+      $('pace-label').textContent = 'last slide — the plan is spent';
+    } else if (status.remainingClock <= 0) {
+      pace.textContent = '—';
+      pace.className = 'big num drift bad';
+      $('pace-label').textContent = `no plan time left, ${formatClock(status.remainingPlan)} of slides to go`;
+    } else {
+      const speed = status.requiredSpeed;
+      pace.textContent = `${speed.toFixed(2)}×`;
+      pace.className = `big num drift ${speed <= 1.02 ? 'ok' : speed <= 1.15 ? 'warn' : 'bad'}`;
+      pace.classList.toggle('idle', idle);
+      $('pace-label').textContent =
+        speed <= 1.02
+          ? `${formatClock(status.remainingPlan)} of slides, ${formatClock(status.remainingClock)} of plan left`
+          : `${formatClock(status.remainingPlan)} of slides in ${formatClock(status.remainingClock)}`;
+    }
+
+    const onSlideMin = Math.max(0, elapsedMs() - timer.slideEnteredMs) / 60000;
+    const ratio = onSlideMin / current.minutes;
+    const bar = $('slide-bar');
+    bar.className = `bar ${ratio > 1.5 ? 'bad' : ratio > 1 ? 'warn' : ''}`;
+    bar.firstElementChild.style.width = `${Math.min(ratio, 1) * 100}%`;
+    $('on-slide').textContent = `${formatClock(onSlideMin)} on this slide`;
+    $('slide-plan').textContent =
+      `planned ${formatClock(current.minutes)} · leave at ${formatClock(current.cumulative)}`;
+
+    // Whole slides: the clock filling up the plan, with a tick where the plan
+    // says you should be — fill past the tick means you are running behind.
+    const deckBar = $('deck-bar');
+    deckBar.className = `bar ${status.level === 'bad' ? 'bad' : status.level === 'warn' ? 'warn' : ''}`;
+    deckBar.firstElementChild.style.width = `${Math.min(elapsedMin / status.budget, 1) * 100}%`;
+    const tick = $('deck-tick');
+    tick.style.left = `${Math.min(status.planPosition / status.budget, 1) * 100}%`;
+    tick.style.opacity = idle ? 0 : '';
+    $('deck-position').textContent = `Slide ${current.index} of ${slideCount}`;
+    $('deck-left').textContent =
+      status.remainingClock >= 0
+        ? `${formatClock(status.remainingClock)} left of ${formatClock(status.budget)}`
+        : `${formatClock(-status.remainingClock)} over ${formatClock(status.budget)}`;
+  }
+
+  setIndex(readSync());
+  render();
+  setInterval(render, 250);
+}
+
+// ------------------------------------------------------------- helpers
+
+/**
+ * Show one slide of the deck in a preview iframe, and return a function that
+ * moves it. The deck renders every slide up front and switches on its URL
+ * hash, so a preview is just the deck pointed at a slide number.
+ *
+ * Assigning `location.hash` would do that too, but each assignment pushes a
+ * history entry into this window and hijacks the browser's Back button — so
+ * navigate with replaceState and hand bespoke the hashchange it listens for.
+ */
+function drivePreview(iframe, deckFile, initialSlide) {
+  let ready = false;
+  let wanted = initialSlide;
+
+  iframe.src = `${deckFile}#${initialSlide}`;
+  iframe.addEventListener('load', () => {
+    ready = true;
+    hideDeckControls(iframe);
+    show(wanted);
+  });
+
+  function show(slideNumber) {
+    wanted = slideNumber;
+    if (!ready) return; // the src above already points at the right slide
+
+    const view = iframe.contentWindow;
+    const hash = `#${slideNumber}`;
+    if (!view || view.location.hash === hash) return;
+
+    const oldURL = view.location.href;
+    view.history.replaceState(null, '', hash);
+    view.dispatchEvent(new view.HashChangeEvent('hashchange', { oldURL, newURL: view.location.href }));
+  }
+
+  return show;
+}
+
+/**
+ * Marp's on-screen control bar floats over every deck window. It is useless in
+ * a preview nobody can click, so drop it — same origin, so we can just style
+ * the iframe's own document. (`?osc=false` is not honoured by `marp --server`.)
+ */
+function hideDeckControls(iframe) {
+  try {
+    const doc = iframe.contentDocument;
+    const style = doc.createElement('style');
+    style.textContent = '.bespoke-marp-osc { display: none !important; }';
+    doc.head.appendChild(style);
+  } catch {
+    // A preview that keeps its control bar is cosmetic, never fatal.
+  }
+}
+
+function readJSON(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Reset mid-lecture would be painful, so make it a two-click action. */
+function armReset(button, action) {
+  let armed = false;
+  let timeout;
+  button.onclick = () => {
+    if (armed) {
+      clearTimeout(timeout);
+      armed = false;
+      button.textContent = 'Reset';
+      button.classList.remove('armed');
+      action();
+      return;
+    }
+    armed = true;
+    button.textContent = 'Reset — sure?';
+    button.classList.add('armed');
+    timeout = setTimeout(() => {
+      armed = false;
+      button.textContent = 'Reset';
+      button.classList.remove('armed');
+    }, 3000);
+  };
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+}
+</script>
+</body>
+</html>

@@ -7,18 +7,22 @@
 // Run with --help for options.
 
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { createIndexer } from './decks.mjs';
+import { createPresenterServer } from './server.mjs';
 
 const HELP = `marp-presenter — presenter console for Marp decks
 
 Usage
+  marp-presenter [dir] [options]      serve the console (dir defaults to .)
   marp-presenter check [dir]          verify timing stamps, exit 1 on problems
 
 Options
-  -h, --help            show this help
+  -p, --port <n>        port to listen on (default 4321, next free port if taken)
+      --theme-set <dir> theme folder passed to marp (default: <dir>/themes)
       --all             include decks normally hidden: those git ignores
                         (generated ones) and those whose name starts with _
+  -h, --help            show this help
 `;
 
 function parseArgs(argv) {
@@ -27,8 +31,10 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === 'check' && options.command === 'serve' && !options.dir) options.command = 'check';
-    else if (arg === '-h' || arg === '--help') options.command = 'help';
+    else if (arg === '-p' || arg === '--port') options.port = Number(argv[++i]);
+    else if (arg === '--theme-set') options.themeSet = argv[++i];
     else if (arg === '--all') options.includeIgnored = true;
+    else if (arg === '-h' || arg === '--help') options.command = 'help';
     else if (arg.startsWith('-')) throw new Error(`Unknown option "${arg}"`);
     else if (!options.dir) options.dir = arg;
     else throw new Error(`Unexpected argument "${arg}"`);
@@ -66,6 +72,24 @@ async function check(root, includeIgnored) {
   return failed === 0;
 }
 
+/** Listen on `port`, stepping to the next free one if something already has it. */
+function listen(server, port, attempts = 20) {
+  return new Promise((resolvePort, reject) => {
+    const onError = (error) => {
+      if (error.code === 'EADDRINUSE' && attempts > 0) {
+        server.removeListener('error', onError);
+        listen(server, port + 1, attempts - 1).then(resolvePort, reject);
+      } else reject(error);
+    };
+
+    server.once('error', onError);
+    server.listen(port, '127.0.0.1', () => {
+      server.removeListener('error', onError);
+      resolvePort(port);
+    });
+  });
+}
+
 let options;
 try {
   options = parseArgs(process.argv.slice(2));
@@ -88,3 +112,35 @@ if (!existsSync(root)) {
 if (options.command === 'check') {
   process.exit((await check(root, options.includeIgnored)) ? 0 : 1);
 }
+
+// marp-cli reads its own config (.marprc, themes) relative to the working
+// directory, so stand in the deck folder and let it behave as it would there.
+process.chdir(root);
+
+const indexer = createIndexer(root, options.includeIgnored);
+
+const themeSet = options.themeSet ?? (existsSync(join(root, 'themes')) ? 'themes' : null);
+
+const server = createPresenterServer({
+  root,
+  indexer,
+  themeSet: themeSet && (isAbsolute(themeSet) ? themeSet : join(root, themeSet)),
+});
+const port = await listen(server, options.port);
+
+console.log(`marp-presenter  http://localhost:${port}/`);
+
+const decks = await indexer();
+
+console.log(`  decks   ${root} (${decks.length} found${themeSet ? `, themes from ${themeSet}` : ''})`);
+
+const unplanned = decks.filter((deck) => !deck.hasPlan);
+if (unplanned.length > 0) {
+  console.log(`  note    ${unplanned.length} deck(s) run without a timing plan:`);
+  for (const deck of unplanned) {
+    const why = deck.errors.length > 0 ? deck.errors[0] : 'no timing stamps';
+    console.log(`            ${deck.file} — ${why}${deck.errors.length > 1 ? ` (+${deck.errors.length - 1} more)` : ''}`);
+  }
+}
+
+console.log('\n  Ctrl+C to stop.');
