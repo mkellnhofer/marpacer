@@ -19,7 +19,7 @@ Usage
 
 Options
   -p, --port <n>        port to listen on (default 4321, next free port if taken)
-      --theme-set <dir> theme folder passed to marp (default: <dir>/themes)
+      --theme-set <dir> folder of theme CSS files (default: <dir>/themes)
       --all             include decks normally hidden: those git ignores
                         (generated ones) and those whose name starts with _
   -h, --help            show this help
@@ -113,19 +113,12 @@ if (options.command === 'check') {
   process.exit((await check(root, options.includeIgnored)) ? 0 : 1);
 }
 
-// marp-cli reads its own config (.marprc, themes) relative to the working
-// directory, so stand in the deck folder and let it behave as it would there.
-process.chdir(root);
-
 const indexer = createIndexer(root, options.includeIgnored);
 
-const themeSet = options.themeSet ?? (existsSync(join(root, 'themes')) ? 'themes' : null);
+const themes = options.themeSet ?? (existsSync(join(root, 'themes')) ? 'themes' : null);
+const themeDir = themes && (isAbsolute(themes) ? themes : join(root, themes));
 
-const server = createPresenterServer({
-  root,
-  indexer,
-  themeSet: themeSet && (isAbsolute(themeSet) ? themeSet : join(root, themeSet)),
-});
+const server = createPresenterServer({ root, indexer, themeDir });
 const port = await listen(server, options.port);
 
 console.log(`marp-presenter  http://localhost:${port}/`);

@@ -248,7 +248,6 @@ const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
 
 /** Deterministic per deck, so reloading either window rejoins the same channel. */
-const syncKey = (deck) => `bespoke-marp-sync-${deck.syncId}`;
 const timerKey = (deck) => `presenter-timer-${deck.syncId}`;
 
 let data;
@@ -310,7 +309,6 @@ function renderPicker() {
 // --------------------------------------------------------------- console
 
 function runConsole(deck) {
-  const SYNC = syncKey(deck);
   const TIMER = timerKey(deck);
   const slideCount = deck.slides.length;
 
@@ -343,26 +341,16 @@ function runConsole(deck) {
     render();
   }
 
-  // ---- slide position, shared with the deck window through localStorage ----
+  // ---- slide position, shared with the deck window ----
 
-  // While the console is re-pointing a freshly opened deck window, ignore what
-  // that window says — it announces slide 1 on load and would drag us back.
-  let suppressUntil = 0;
-
-  function readSync() {
-    const state = readJSON(SYNC);
-    return typeof state.index === 'number' ? state.index : 0;
-  }
-
-  function writeSync(index) {
-    // Merge: bespoke keeps its own bookkeeping (reference count) in here.
-    localStorage.setItem(SYNC, JSON.stringify({ ...readJSON(SYNC), index, fragmentIndex: 0 }));
-  }
+  // One channel per deck. Messages carry 1-based slide numbers, matching what
+  // the deck window and the slide counter show.
+  const channel = new BroadcastChannel(`presenter-${deck.syncId}`);
 
   function jumpTo(index) {
     const clamped = Math.min(Math.max(index, 0), deck.slides.length - 1);
-    writeSync(clamped);
     setIndex(clamped);
+    channel.postMessage({ type: 'slide', index: clamped + 1 });
   }
 
   function setIndex(index) {
@@ -373,32 +361,20 @@ function runConsole(deck) {
     render();
   }
 
-  function followDeck() {
-    if (Date.now() < suppressUntil) return;
-    setIndex(readSync());
-  }
-
-  // The deck window fires `storage`; polling covers the cases where it doesn't.
-  window.addEventListener('storage', (event) => {
-    if (event.key === SYNC) followDeck();
+  channel.addEventListener('message', ({ data }) => {
+    // The deck window moved (clicker, keyboard) — follow it, and do not echo.
+    if (data?.type === 'slide') setIndex(data.index - 1);
+    // Either side may ask where the other stands; answer with our own slide.
+    else if (data?.type === 'hello') channel.postMessage({ type: 'slide', index: timer.index + 1 });
   });
-  setInterval(followDeck, 500);
+
+  // If a deck window is already open, adopt its slide — what the room sees wins.
+  channel.postMessage({ type: 'hello' });
 
   function openDeck() {
-    const target = timer.index;
-    window.open(`${deck.url}?sync=${deck.syncId}`, `deck-${deck.syncId}`);
-    if (target === 0) return; // a fresh deck window already opens on slide 1
-
-    // Reopening mid-lecture: the new window starts on slide 1 and only reacts to
-    // *changes* of the sync key, so step off the target value and back onto it.
-    suppressUntil = Date.now() + 3000;
-    setTimeout(() => {
-      writeSync(0);
-      setTimeout(() => {
-        writeSync(target);
-        suppressUntil = 0;
-      }, 200);
-    }, 1500);
+    // The deck window opens straight onto the current slide, so reopening one
+    // mid-lecture needs no correction afterwards.
+    window.open(`${deck.url}?slide=${timer.index + 1}`, `deck-${deck.syncId}`);
   }
 
   // ---- chrome ----
@@ -619,7 +595,6 @@ function runConsole(deck) {
         : `${formatClock(-status.remainingClock)} over ${formatClock(status.budget)}`;
   }
 
-  setIndex(readSync());
   render();
   setInterval(render, 250);
 }
@@ -628,54 +603,25 @@ function runConsole(deck) {
 
 /**
  * Show one slide of the deck in a preview iframe, and return a function that
- * moves it. The deck renders every slide up front and switches on its URL
- * hash, so a preview is just the deck pointed at a slide number.
- *
- * Assigning `location.hash` would do that too, but each assignment pushes a
- * history entry into this window and hijacks the browser's Back button — so
- * navigate with replaceState and hand bespoke the hashchange it listens for.
+ * moves it. The deck page exposes `deck.go()` and, in preview mode, keeps to
+ * itself: no keyboard handling, no sync channel, no history entries.
  */
-function drivePreview(iframe, deckFile, initialSlide) {
+function drivePreview(iframe, deckUrl, initialSlide) {
   let ready = false;
   let wanted = initialSlide;
 
-  iframe.src = `${deckFile}#${initialSlide}`;
+  iframe.src = `${deckUrl}?preview=1&slide=${initialSlide}`;
   iframe.addEventListener('load', () => {
     ready = true;
-    hideDeckControls(iframe);
     show(wanted);
   });
 
   function show(slideNumber) {
     wanted = slideNumber;
-    if (!ready) return; // the src above already points at the right slide
-
-    const view = iframe.contentWindow;
-    const hash = `#${slideNumber}`;
-    if (!view || view.location.hash === hash) return;
-
-    const oldURL = view.location.href;
-    view.history.replaceState(null, '', hash);
-    view.dispatchEvent(new view.HashChangeEvent('hashchange', { oldURL, newURL: view.location.href }));
+    if (ready) iframe.contentWindow?.deck?.go(slideNumber);
   }
 
   return show;
-}
-
-/**
- * Marp's on-screen control bar floats over every deck window. It is useless in
- * a preview nobody can click, so drop it — same origin, so we can just style
- * the iframe's own document. (`?osc=false` is not honoured by `marp --server`.)
- */
-function hideDeckControls(iframe) {
-  try {
-    const doc = iframe.contentDocument;
-    const style = doc.createElement('style');
-    style.textContent = '.bespoke-marp-osc { display: none !important; }';
-    doc.head.appendChild(style);
-  } catch {
-    // A preview that keeps its control bar is cosmetic, never fatal.
-  }
 }
 
 function readJSON(key) {

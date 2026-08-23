@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+
+<!-- The deck's own theme, as Marpit rendered it. -->
+<style>{{themeCss}}</style>
+
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body.idle { cursor: none; }
+  div.marpit { height: 100%; }
+  /* One slide at a time; the SVG viewBox letterboxes it into any window. */
+  div.marpit > svg[data-marpit-svg] { display: none; }
+  div.marpit > svg[data-marpit-svg].is-active { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body data-sync-id="{{syncId}}">
+{{slides}}
+
+<script type="module">
+// The deck window's runtime: show one slide, move between them, and stay in
+// step with the presenter console. Nothing is drawn on top of the slide — no
+// control bar, no page counter, no cursor once you stop moving it.
+
+const slides = [...document.querySelectorAll('div.marpit > svg[data-marpit-svg]')];
+const params = new URLSearchParams(location.search);
+
+// Previews inside the console are mirrors: no keys, no channel, no cursor
+// handling. The console positions them by calling `deck.go()` directly.
+const isPreview = params.has('preview');
+
+const clamp = (n) => Math.min(Math.max(Math.round(n) || 1, 1), slides.length);
+let index = clamp(Number(params.get('slide') || location.hash.slice(1) || 1));
+
+function show(next) {
+  index = clamp(next);
+  slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index - 1));
+  // replaceState, not a hash assignment: a reload keeps the slide without
+  // filling the window's history with one entry per slide.
+  if (!isPreview) history.replaceState(null, '', `?slide=${index}`);
+}
+
+show(index);
+
+// Same-origin handle for the console's preview iframes.
+window.deck = {
+  go: show,
+  get current() {
+    return index;
+  },
+  count: slides.length,
+};
+
+if (!isPreview) present();
+
+/** Everything only the projected window does: keys, sync, and the cursor. */
+function present() {
+  const channel =
+    'BroadcastChannel' in window ? new BroadcastChannel(`presenter-${document.body.dataset.syncId}`) : null;
+
+  /** Move, and tell the console where we went. */
+  function goto(next) {
+    const before = index;
+    show(next);
+    if (index !== before) channel?.postMessage({ type: 'slide', index });
+  }
+
+  channel?.addEventListener('message', ({ data }) => {
+    if (data?.type === 'slide') show(data.index);
+    // Either side may ask; whoever is asked answers with where it stands.
+    else if (data?.type === 'hello') channel.postMessage({ type: 'slide', index });
+  });
+
+  // Announce ourselves so a freshly opened window lands on the console's slide.
+  channel?.postMessage({ type: 'hello' });
+
+  const KEYS = {
+    ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, Enter: 1,
+    ArrowLeft: -1, ArrowUp: -1, PageUp: -1, Backspace: -1,
+  };
+
+  document.addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+    if (event.key === 'Home') goto(1);
+    else if (event.key === 'End') goto(slides.length);
+    else if (event.key === 'f')
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    else if (KEYS[event.key]) goto(index + KEYS[event.key]);
+    else return;
+
+    event.preventDefault();
+  });
+
+  // A pointer parked over the projected image is a distraction.
+  let idleTimer;
+  const wake = () => {
+    document.body.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => document.body.classList.add('idle'), 2500);
+  };
+  document.addEventListener('mousemove', wake);
+  wake();
+}
+</script>
+</body>
+</html>

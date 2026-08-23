@@ -12,9 +12,12 @@
     "decks.mjs",
     "server.mjs",
     "timing.js",
-    "presenter.html"
+    "presenter.html",
+    "deck.template.html",
+    "themes/"
   ],
   "dependencies": {
-    "@marp-team/marp-cli": "^4.1.2"
+    "@marp-team/marpit": "^3.2.2",
+    "highlight.js": "^11.12.0"
   }
 }

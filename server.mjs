@@ -1,16 +1,16 @@
 // A tiny static server that renders Marp decks on demand, so the presenter
-// console can run against any folder of decks without `marp --server`.
+// console can run against any folder of decks with no build step.
 //
-// Rendering goes through marp-cli's own API, so the decks are byte-for-byte
-// what `marp` would produce — same themes, same bespoke template, and with it
-// the sync channel and hash navigation the console drives.
+// Rendering is Marpit plus highlight.js; the page around the slides is ours
+// (see deck.template.html), which is what keeps the deck free of any on-screen
+// controls.
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { marpCli } from '@marp-team/marp-cli';
+import { Marpit } from '@marp-team/marpit';
+import hljs from 'highlight.js';
 
 const toolDir = dirname(fileURLToPath(import.meta.url));
 
@@ -31,43 +31,8 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
-/** Render one deck to HTML through marp-cli, reusing the last result until it changes. */
-function createRenderer(root, themeSet) {
-  const cache = new Map();
-  const inFlight = new Map();
-
-  return async function render(file) {
-    const source = join(root, file);
-    const { mtimeMs } = await stat(source);
-
-    const cached = cache.get(file);
-    if (cached && cached.mtimeMs === mtimeMs) return cached.html;
-
-    // The console asks for the same deck from three windows at once; render it
-    // once and let the others wait on the same promise.
-    const pending = inFlight.get(file);
-    if (pending) return pending;
-
-    const job = (async () => {
-      const out = join(tmpdir(), `marp-presenter-${process.pid}-${Buffer.from(file).toString('hex')}.html`);
-      const argv = [source, '--html', '--allow-local-files', '--quiet', '-o', out];
-      if (themeSet) argv.push('--theme-set', themeSet);
-
-      const code = await marpCli(argv);
-      if (code !== 0) throw new Error(`marp exited with code ${code} converting ${file}`);
-
-      const html = await readFile(out, 'utf8');
-      cache.set(file, { mtimeMs, html });
-      return html;
-    })().finally(() => inFlight.delete(file));
-
-    inFlight.set(file, job);
-    return job;
-  };
-}
-
-export function createPresenterServer({ root, indexer, themeSet }) {
-  const renderer = createRenderer(root, themeSet);
+export function createPresenterServer({ root, indexer, themeDir }) {
+  const renderer = createRenderer(root, themeDir);
 
   const send = (res, status, body, type) => {
     res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' });
@@ -107,3 +72,92 @@ export function createPresenterServer({ root, indexer, themeSet }) {
     }
   });
 }
+
+/** Render one deck to HTML, reusing the last result until the file changes. */
+function createRenderer(root, themeDir) {
+  const cache = new Map();
+  let engine;
+
+  return async function render(file) {
+    const { mtimeMs } = await stat(join(root, file));
+
+    const cached = cache.get(file);
+    if (cached && cached.mtimeMs === mtimeMs) return cached.html;
+
+    engine ??= await createEngine(themeDir);
+    const markdown = await readFile(join(root, file), 'utf8');
+    const html = await renderDeck(engine, markdown, {
+      title: deckId(file).split('/').pop(),
+      syncId: syncId(file),
+    });
+
+    cache.set(file, { mtimeMs, html });
+    return html;
+  };
+}
+
+/**
+ * A Marpit instance carrying the tool's fallback theme plus every `*.css` in
+ * the deck folder's theme directory. Decks pick one with `theme:` in their
+ * front matter, and custom themes can `@import 'default'`.
+ */
+async function createEngine(themeDir) {
+  const marpit = new Marpit({
+    inlineSVG: true, // wraps each slide in an SVG, which is what makes it scale
+    markdown: { html: true, breaks: false, highlight },
+  });
+
+  marpit.themeSet.default = marpit.themeSet.add(
+    await readFile(join(toolDir, 'themes', 'default.css'), 'utf8'),
+  );
+
+  if (themeDir) {
+    for (const name of await readdir(themeDir)) {
+      if (extname(name) !== '.css') continue;
+      try {
+        marpit.themeSet.add(await readFile(join(themeDir, name), 'utf8'));
+      } catch (error) {
+        // A CSS file without `/* @theme name */` is not a theme — skip it.
+        console.warn(`  theme skipped: ${name} — ${error.message}`);
+      }
+    }
+  }
+
+  return marpit;
+}
+
+/** Fenced code gets highlight.js markup; the themes colour the `.hljs-*` classes. */
+function highlight(code, lang) {
+  if (lang && hljs.getLanguage(lang)) {
+    try {
+      return hljs.highlight(code, { language: lang }).value;
+    } catch {
+      // Fall through to Markdown-it's own escaping.
+    }
+  }
+  return '';
+}
+
+/** The deck window's markup, styles and script, read once. */
+let template;
+
+/**
+ * Render one deck's Markdown into a page for the deck window, by dropping the
+ * slides and their theme into `deck.template.html`.
+ */
+async function renderDeck(marpit, markdown, { title, syncId }) {
+  const { html, css } = marpit.render(markdown);
+
+  template ??= await readFile(join(toolDir, 'deck.template.html'), 'utf8');
+  const values = { title: escapeHtml(title), themeCss: css, syncId: escapeHtml(syncId), slides: html };
+
+  // Replace with a function, so a `$&` or `$1` inside a deck or its theme is
+  // never mistaken for a replacement pattern.
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => values[key] ?? match);
+}
+
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+const deckId = (file) => file.split(sep).join('/').replace(/\.md$/, '');
+const syncId = (file) => deckId(file).replace(/[^a-zA-Z0-9]+/g, '-');

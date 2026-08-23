@@ -53,3 +53,15 @@ neither. `status` is `over` when the estimate exceeds `lectureBudgetMinutes`,
 
 Nothing recomputes `index` or `cumulative`, so inserting, deleting or reordering a slide
 silently desyncs every stamp after it.
+
+## Themes and rendering
+
+A deck picks its theme with `theme:` in front matter, resolved against the `--theme-set`
+folder. Marpit ships no themes of its own, so this tool provides a plain `default` that
+decks fall back to and that custom themes can build on with `@import 'default'`.
+
+Fenced code is highlighted with highlight.js, whose `.hljs-*` classes both the bundled
+theme and any custom theme can colour. Two things Marp's full renderer does that this one
+does not: math (`$$…$$`) and Marp's auto-scaling directives such as `<!-- fit -->`.
+
+Raw HTML in decks is rendered as written — these are your own files, presented locally.

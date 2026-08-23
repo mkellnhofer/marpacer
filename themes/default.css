@@ -1,0 +1,100 @@
+/* @theme default */
+
+/*
+ * Marpit ships no themes of its own, so this stands in for Marp's built-in
+ * `default`. It covers decks that name no theme, decks that ask for `default`,
+ * and custom themes that build on it with `@import 'default'`.
+ *
+ * Deliberately plain: readable type, sane spacing, and the structural bits a
+ * deck needs (header, footer, pagination, code, tables).
+ */
+
+section {
+  width: 1280px;
+  height: 720px;
+  padding: 70px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 28px;
+  line-height: 1.45;
+  color: #202228;
+  background: #fff;
+  letter-spacing: 0;
+}
+
+section > *:first-child { margin-top: 0; }
+section > *:last-child { margin-bottom: 0; }
+
+h1 { font-size: 1.9em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.2em; }
+h4, h5, h6 { font-size: 1em; }
+h1, h2, h3, h4, h5, h6 { margin: .3em 0 .5em; line-height: 1.2; font-weight: 700; }
+
+p, ul, ol, blockquote, table, pre { margin: .5em 0; }
+ul, ol { padding-left: 1.4em; }
+li { margin: .2em 0; }
+
+a { color: #1a5fd0; }
+
+blockquote {
+  margin-left: 0;
+  padding-left: .8em;
+  border-left: 4px solid #d6d8e0;
+  color: #4b5060;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: .85em;
+  background: #f1f2f6;
+  border-radius: 4px;
+  padding: .1em .3em;
+}
+
+pre {
+  background: #f1f2f6;
+  border-radius: 8px;
+  padding: .7em .9em;
+  overflow: hidden;
+}
+pre code { background: none; padding: 0; font-size: .78em; line-height: 1.5; }
+
+table { border-collapse: collapse; }
+th, td { border: 1px solid #d6d8e0; padding: .3em .6em; text-align: left; }
+th { background: #f1f2f6; }
+
+img { max-width: 100%; }
+
+header, footer {
+  position: absolute;
+  left: 70px;
+  right: 70px;
+  font-size: 18px;
+  color: #6b7280;
+}
+header { top: 28px; }
+footer { bottom: 28px; }
+
+/*
+ * Marpit positions the page number itself, indented by the section's padding.
+ * Zero that out so a theme's own `right`/`bottom` are measured from the slide
+ * edge, which is what themes written against Marp's default theme expect.
+ */
+section::after {
+  padding: 0;
+  right: 70px;
+  bottom: 28px;
+  font-size: 18px;
+  color: #6b7280;
+}
+
+/* Syntax highlighting, matching the classes highlight.js emits. */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag { color: #a626a4; }
+.hljs-string, .hljs-attr, .hljs-attribute { color: #50a14f; }
+.hljs-title, .hljs-title.function_ { color: #4078f2; }
+.hljs-number, .hljs-literal { color: #c18401; }
+.hljs-comment { color: #a0a1a7; font-style: italic; }
