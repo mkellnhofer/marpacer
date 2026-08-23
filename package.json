@@ -2,12 +2,16 @@
   "name": "marp-presenter",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "A custom presenter console for Marp/Marpit decks.",
-  "scripts": {
-    "watch": "marp --theme-set themes --server .",
-    "pdf": "marp --theme-set themes --allow-local-files --pdf"
+  "bin": {
+    "marp-presenter": "./cli.mjs"
   },
-  "devDependencies": {
+  "files": [
+    "cli.mjs",
+    "decks.mjs"
+  ],
+  "dependencies": {
     "@marp-team/marp-cli": "^4.1.2"
   }
 }
