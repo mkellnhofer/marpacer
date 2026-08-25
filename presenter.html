@@ -374,7 +374,7 @@ function runConsole(deck) {
   function openDeck() {
     // The deck window opens straight onto the current slide, so reopening one
     // mid-lecture needs no correction afterwards.
-    window.open(`${deck.url}?slide=${timer.index + 1}`, `deck-${deck.syncId}`);
+    window.open(`${deck.url}?slide=${timer.index + 1}&sync=${deck.syncId}`, `deck-${deck.syncId}`);
   }
 
   // ---- chrome ----

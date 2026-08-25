@@ -3,11 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{title}}</title>
-
-<!-- The deck's own theme, as Marp rendered it. -->
-<style>{{themeCss}}</style>
-
+<title>Deck</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   body.idle { cursor: none; }
@@ -17,49 +13,94 @@
   div.marpit > svg[data-marpit-svg].is-active { display: block; width: 100%; height: 100%; }
 </style>
 </head>
-<body data-sync-id="{{syncId}}">
-{{slides}}
+<body>
+<div id="deck"></div>
 
 <script type="module">
 // The deck window's runtime: show one slide, move between them, and stay in
 // step with the presenter console. Nothing is drawn on top of the slide — no
 // control bar, no page counter, no cursor once you stop moving it.
 
-const slides = [...document.querySelectorAll('div.marpit > svg[data-marpit-svg]')];
 const params = new URLSearchParams(location.search);
 
 // Previews inside the console are mirrors: no keys, no channel, no cursor
 // handling. The console positions them by calling `deck.go()` directly.
 const isPreview = params.has('preview');
 
-const clamp = (n) => Math.min(Math.max(Math.round(n) || 1, 1), slides.length);
-let index = clamp(Number(params.get('slide') || location.hash.slice(1) || 1));
+// The deck is identified by this page's own URL, so its slides, its stylesheet
+// and its assets all live under the same path.
+const deckPath = location.pathname.replace(/^\/decks\//, '');
+document.title = decodeURIComponent(deckPath.split('/').pop()).replace(/\.md$/, '');
+
+let slides = [];
+let index = Number(params.get('slide')) || 1;
+
+const clamp = (n) => Math.min(Math.max(Math.round(n) || 1, 1), Math.max(slides.length, 1));
 
 function show(next) {
   index = clamp(next);
+  // Before the slides arrive this only records where to land.
   slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index - 1));
-  // replaceState, not a hash assignment: a reload keeps the slide without
-  // filling the window's history with one entry per slide.
-  if (!isPreview) history.replaceState(null, '', `?slide=${index}`);
+
+  if (isPreview || slides.length === 0) return;
+  // replaceState on a copy of the current URL: a reload keeps the slide, the
+  // sync id and everything else, without one history entry per slide.
+  const url = new URL(location.href);
+  url.searchParams.set('slide', index);
+  history.replaceState(null, '', url);
 }
 
-show(index);
-
-// Same-origin handle for the console's preview iframes.
+// Same-origin handle for the console's preview iframes. It exists before the
+// slides load, so a `go()` that arrives early is honoured once they do.
 window.deck = {
   go: show,
   get current() {
     return index;
   },
-  count: slides.length,
+  get count() {
+    return slides.length;
+  },
 };
+
+await load();
+show(index);
 
 if (!isPreview) present();
 
+/** Fetch this deck's stylesheet and slides, and put them in the page. */
+async function load() {
+  const stylesheet = Object.assign(document.createElement('link'), {
+    rel: 'stylesheet',
+    href: `/api/style/${deckPath}`,
+  });
+
+  const styled = new Promise((done) => stylesheet.addEventListener('load', done, { once: true }));
+  document.head.append(stylesheet);
+
+  const response = await fetch(`/api/slides/${deckPath}`);
+  if (!response.ok) throw new Error(`${deckPath}: slides could not be rendered (HTTP ${response.status})`);
+
+  const container = document.getElementById('deck');
+  container.innerHTML = await response.text();
+
+  // Marp inlines its browser helper — auto-scaling and the Safari SVG polyfill
+  // — with the slides, and a script inserted via innerHTML never runs. Swap in
+  // fresh script elements so it does, now that the slides are in the DOM.
+  for (const inert of container.querySelectorAll('script')) {
+    const script = document.createElement('script');
+    script.textContent = inert.textContent;
+    inert.replaceWith(script);
+  }
+
+  slides = [...container.querySelectorAll('div.marpit > svg[data-marpit-svg]')];
+  await styled; // paint styled slides, never a flash of unstyled ones
+}
+
 /** Everything only the projected window does: keys, sync, and the cursor. */
 function present() {
+  const syncId = params.get('sync');
   const channel =
-    'BroadcastChannel' in window ? new BroadcastChannel(`presenter-${document.body.dataset.syncId}`) : null;
+    syncId && 'BroadcastChannel' in window ? new BroadcastChannel(`presenter-${syncId}`) : null;
 
   /** Move, and tell the console where we went. */
   function goto(next) {

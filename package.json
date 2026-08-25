@@ -10,10 +10,11 @@
   "files": [
     "cli.mjs",
     "decks.mjs",
+    "render.mjs",
     "server.mjs",
     "timing.js",
     "presenter.html",
-    "deck.template.html"
+    "deck.html"
   ],
   "dependencies": {
     "@marp-team/marp-core": "^4.4.0"

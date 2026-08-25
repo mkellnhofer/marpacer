@@ -9,6 +9,7 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { createIndexer } from './decks.mjs';
+import { createRenderer } from './render.mjs';
 import { createPresenterServer } from './server.mjs';
 
 const HELP = `marp-presenter — presenter console for Marp decks
@@ -117,8 +118,9 @@ const indexer = createIndexer(root, options.includeIgnored);
 
 const themes = options.themeSet ?? (existsSync(join(root, 'themes')) ? 'themes' : null);
 const themeDir = themes && (isAbsolute(themes) ? themes : join(root, themes));
+const renderer = createRenderer(root, themeDir);
 
-const server = createPresenterServer({ root, indexer, themeDir });
+const server = createPresenterServer({ root, indexer, renderer });
 const port = await listen(server, options.port);
 
 console.log(`marp-presenter  http://localhost:${port}/`);

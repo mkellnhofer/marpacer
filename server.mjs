@@ -1,15 +1,16 @@
-// A tiny static server that renders Marp decks on demand, so the presenter
-// console can run against any folder of decks with no build step.
+// A tiny static server for the presenter console and the decks it presents.
 //
-// Rendering is Marpit plus highlight.js; the page around the slides is ours
-// (see deck.template.html), which is what keeps the deck free of any on-screen
-// controls.
+// Both pages it serves — presenter.html and deck.html — are static files that
+// fetch what they need over HTTP: the deck index, and a deck's slides and
+// stylesheet. Rendering happens in render.mjs, on demand and cached by mtime.
+//
+// The page around the slides being ours is what keeps the deck window free of
+// any on-screen controls.
 
 import { createServer } from 'node:http';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Marp } from '@marp-team/marp-core';
 
 const toolDir = dirname(fileURLToPath(import.meta.url));
 
@@ -30,9 +31,13 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
-export function createPresenterServer({ root, indexer, themeDir }) {
-  const renderer = createRenderer(root, themeDir);
+/** The two halves of a rendered deck, each on its own endpoint. */
+const API_PARTS = [
+  ['/api/slides/', 'html', MIME['.html']],
+  ['/api/style/', 'css', MIME['.css']],
+];
 
+export function createPresenterServer({ root, indexer, renderer }) {
   const send = (res, status, body, type) => {
     res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' });
     res.end(body);
@@ -52,14 +57,29 @@ export function createPresenterServer({ root, indexer, themeDir }) {
       if (path === '/api/decks')
         return send(res, 200, JSON.stringify({ root, decks: await indexer() }), MIME['.json']);
 
-      if (path.startsWith('/decks/')) {
-        const requested = path.slice('/decks/'.length);
-        const target = resolve(root, requested);
-        // Never serve outside the deck folder, however the path is spelled.
-        if (target !== root && !target.startsWith(root + sep)) return send(res, 403, 'Forbidden', 'text/plain');
+      // A deck's slides and its stylesheet, each addressed by the deck's own path.
+      for (const [prefix, part, type] of API_PARTS) {
+        if (!path.startsWith(prefix)) continue;
 
-        const file = relative(root, target);
-        if (extname(target) === '.md') return send(res, 200, await renderer(file), MIME['.html']);
+        const target = underRoot(root, path.slice(prefix.length));
+        if (!target) return send(res, 403, 'Forbidden', 'text/plain');
+
+        const rendered = await renderer(relative(root, target));
+        return send(res, 200, rendered[part], type);
+      }
+
+      if (path.startsWith('/decks/')) {
+        const target = underRoot(root, path.slice('/decks/'.length));
+        if (!target) return send(res, 403, 'Forbidden', 'text/plain');
+
+        // A deck's URL serves the deck window itself — a static page that then
+        // asks for the slides at that same path. `stat` first, so a deck that
+        // does not exist is a 404 here rather than a puzzle in the browser.
+        if (extname(target) === '.md') {
+          await stat(target);
+          return send(res, 200, await readFile(join(toolDir, 'deck.html')), MIME['.html']);
+        }
+
         return send(res, 200, await readFile(target), MIME[extname(target)] ?? 'application/octet-stream');
       }
 
@@ -72,79 +92,8 @@ export function createPresenterServer({ root, indexer, themeDir }) {
   });
 }
 
-/** Render one deck to HTML, reusing the last result until the file changes. */
-function createRenderer(root, themeDir) {
-  const cache = new Map();
-  let engine;
-
-  return async function render(file) {
-    const { mtimeMs } = await stat(join(root, file));
-
-    const cached = cache.get(file);
-    if (cached && cached.mtimeMs === mtimeMs) return cached.html;
-
-    engine ??= await createEngine(themeDir);
-    const markdown = await readFile(join(root, file), 'utf8');
-    const html = await renderDeck(engine, markdown, {
-      title: deckId(file).split('/').pop(),
-      syncId: syncId(file),
-    });
-
-    cache.set(file, { mtimeMs, html });
-    return html;
-  };
+/** Resolve a requested path inside the deck folder, or null if it escapes. */
+function underRoot(root, requested) {
+  const target = resolve(root, requested);
+  return target === root || target.startsWith(root + sep) ? target : null;
 }
-
-/**
- * A Marp instance carrying its own built-in themes (`default`, `gaia`,
- * `uncover`) plus every `*.css` in the deck folder's theme directory. Decks
- * pick one with `theme:` in their front matter, and custom themes can build on
- * a built-in one with `@import 'default'`.
- */
-export async function createEngine(themeDir) {
-  const marp = new Marp({
-    inlineSVG: true, // wraps each slide in an SVG, which is what makes it scale
-    html: true, // decks are local files you wrote; render their HTML as-is
-
-    // `script` is left at its default: Marp inlines its browser helper, which
-    // drives auto-scaling (`<!-- fit -->`) and polyfills SVG slides in Safari.
-  });
-
-  if (themeDir) {
-    for (const name of await readdir(themeDir)) {
-      if (extname(name) !== '.css') continue;
-      try {
-        marp.themeSet.add(await readFile(join(themeDir, name), 'utf8'));
-      } catch (error) {
-        // A CSS file without `/* @theme name */` is not a theme — skip it.
-        console.warn(`  theme skipped: ${name} — ${error.message}`);
-      }
-    }
-  }
-
-  return marp;
-}
-
-/** The deck window's markup, styles and script, read once. */
-let template;
-
-/**
- * Render one deck's Markdown into a page for the deck window, by dropping the
- * slides and their theme into `deck.template.html`.
- */
-export async function renderDeck(marp, markdown, { title, syncId }) {
-  const { html, css } = marp.render(markdown);
-
-  template ??= await readFile(join(toolDir, 'deck.template.html'), 'utf8');
-  const values = { title: escapeHtml(title), themeCss: css, syncId: escapeHtml(syncId), slides: html };
-
-  // Replace with a function, so a `$&` or `$1` inside a deck or its theme is
-  // never mistaken for a replacement pattern.
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => values[key] ?? match);
-}
-
-const escapeHtml = (value) =>
-  String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-
-const deckId = (file) => file.split(sep).join('/').replace(/\.md$/, '');
-const syncId = (file) => deckId(file).replace(/[^a-zA-Z0-9]+/g, '-');
