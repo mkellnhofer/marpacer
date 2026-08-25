@@ -278,5 +278,11 @@ function round(value) {
 /** The deck's ID: Its path relative to the deck folder, without the extension. */
 const deckId = (file) => file.split(sep).join('/').replace(/\.md$/, '');
 
-/** The deck's sync ID: Used as a localStorage key suffix, so keep it plain. */
-const syncId = (file) => deckId(file).replace(/[^a-zA-Z0-9]+/g, '-');
+/**
+ * base64url of the deck's path: one opaque token per deck, built only from
+ * `A-Za-z0-9-_`. Nothing decodes it — it just names a BroadcastChannel, a
+ * window and a localStorage key, and rides in a query string untouched. Folding
+ * the path's punctuation into `-` instead would let `a/b-c` and `a-b/c` land on
+ * the same channel.
+ */
+const syncId = (file) => Buffer.from(deckId(file), 'utf8').toString('base64url');
