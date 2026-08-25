@@ -8,7 +8,7 @@
 
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
-import { createIndexer } from './decks.mjs';
+import { DeckIndex } from './decks.mjs';
 import { createRenderer } from './render.mjs';
 import { createPresenterServer } from './server.mjs';
 
@@ -45,8 +45,8 @@ function parseArgs(argv) {
 }
 
 async function check(root, includeIgnored) {
-  const indexer = createIndexer(root, includeIgnored);
-  const decks = await indexer();
+  const deckIndex = new DeckIndex(root, options.includeIgnored);
+  const decks = await deckIndex.getDecks();
   if (decks.length === 0) {
     console.log(`No Marp decks found under ${root}`);
     return true;
@@ -114,18 +114,18 @@ if (options.command === 'check') {
   process.exit((await check(root, options.includeIgnored)) ? 0 : 1);
 }
 
-const indexer = createIndexer(root, options.includeIgnored);
+const deckIndex = new DeckIndex(root, options.includeIgnored);
 
 const themes = options.themeSet ?? (existsSync(join(root, 'themes')) ? 'themes' : null);
 const themeDir = themes && (isAbsolute(themes) ? themes : join(root, themes));
-const renderer = createRenderer(root, themeDir);
+const renderer = createRenderer(themeDir);
 
-const server = createPresenterServer({ root, indexer, renderer });
+const server = createPresenterServer({ deckIndex, renderer });
 const port = await listen(server, options.port);
 
 console.log(`marp-presenter  http://localhost:${port}/`);
 
-const decks = await indexer();
+const decks = await deckIndex.getDecks();
 
 console.log(`  decks   ${root} (${decks.length} found${themes ? `, themes from ${themes}` : ''})`);
 

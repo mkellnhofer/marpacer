@@ -9,19 +9,23 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Marp } from '@marp-team/marp-core';
 
-/** Render one deck's slides and stylesheet, reusing the last result until the file changes. */
-export function createRenderer(root, themeDir) {
+/**
+ * Render one deck's slides and stylesheet, reusing the last result until the
+ * file changes. `file` is the deck's absolute path — where decks live is the
+ * deck index's business, not this module's.
+ */
+export function createRenderer(themeDir) {
   const cache = new Map();
   let engine;
 
   return async function render(file) {
-    const { mtimeMs } = await stat(join(root, file));
+    const { mtimeMs } = await stat(file);
 
     const cached = cache.get(file);
     if (cached && cached.mtimeMs === mtimeMs) return cached.result;
 
     engine ??= await createEngine(themeDir);
-    const result = engine.render(await readFile(join(root, file), 'utf8'));
+    const result = engine.render(await readFile(file, 'utf8'));
 
     cache.set(file, { mtimeMs, result });
 

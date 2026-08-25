@@ -3,7 +3,7 @@
 
 import { spawn } from 'node:child_process';
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { extname, join, relative, sep } from 'node:path';
+import { extname, join, relative, resolve, sep } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'dist', 'node_modules']);
 
@@ -20,22 +20,35 @@ const DIRECTIVE_RE =
   /^_?(class|footer|header|paginate|color|theme|style|size|transition|marp|background(Color|Image|Position|Repeat|Size)?)\s*:/;
 
 /**
- * The deck index the console runs on: timing plan where the stamps hold up,
- * slides/titles/notes always. Re-read whenever a deck file changes on disk.
+ * One folder of decks: the index the console runs on — timing plan where the
+ * stamps hold up, slides/titles/notes always — and the folder's own path
+ * safety, so everything that resolves a path against the deck root goes
+ * through the object that owns it.
  */
-export function createIndexer(root, includeIgnored) {
-  const cache = new Map();
+export class DeckIndex {
 
-  return async function index() {
-    const files = await findDecks(root, includeIgnored);
+  #cache = new Map();
+  #includeIgnored;
+
+  constructor(root, includeIgnored = false) {
+    this.root = root;
+    this.#includeIgnored = includeIgnored;
+  }
+
+  /**
+   * Every deck under the root. Call it again whenever a deck may have changed
+   * on disk — a deck is re-parsed only once its mtime moves.
+   */
+  async getDecks() {
+    const files = await findDecks(this.root, this.#includeIgnored);
     const decks = [];
 
     for (const file of files) {
-      const { mtimeMs } = await stat(join(root, file));
-      let entry = cache.get(file);
+      const { mtimeMs } = await stat(join(this.root, file));
+      let entry = this.#cache.get(file);
 
       if (!entry || entry.mtimeMs !== mtimeMs) {
-        const deck = parseDeck(await readFile(join(root, file), 'utf8'), file.split(sep).join('/'));
+        const deck = parseDeck(await readFile(join(this.root, file), 'utf8'), file.split(sep).join('/'));
         entry = {
           mtimeMs,
           deck: {
@@ -45,14 +58,28 @@ export function createIndexer(root, includeIgnored) {
             url: `/decks/${file.split(sep).map(encodeURIComponent).join('/')}`,
           },
         };
-        cache.set(file, entry);
+        this.#cache.set(file, entry);
       }
 
       decks.push(entry.deck);
     }
 
     return decks;
-  };
+  }
+
+  /**
+   * `requested`, a path relative to the root, as an absolute path — or `null`
+   * when it points outside the folder, which is what keeps a `..` in a URL
+   * from reaching the rest of the disk.
+   *
+   * Only containment is decided here, not existence: a deck that is simply
+   * gone should read as missing where it is opened, not as a refusal here.
+   */
+  getFile(requested) {
+    const target = resolve(this.root, requested);
+    return target === this.root || target.startsWith(this.root + sep) ? target : null;
+  }
+
 }
 
 /**
