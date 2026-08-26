@@ -21,6 +21,8 @@
 // step with the presenter console. Nothing is drawn on top of the slide — no
 // control bar, no page counter, no cursor once you stop moving it.
 
+import { createSync } from '/sync.js';
+
 const params = new URLSearchParams(location.search);
 
 // Previews inside the console are mirrors: no keys, no channel, no cursor
@@ -98,25 +100,19 @@ async function load() {
 
 /** Everything only the projected window does: keys, sync, and the cursor. */
 function present() {
-  const syncId = params.get('sync');
-  const channel =
-    syncId && 'BroadcastChannel' in window ? new BroadcastChannel(`presenter-${syncId}`) : null;
+  const sync = createSync(params.get('sync'), {
+    getSlide: () => index,
+    // The console moved us — `show`, not `goto`, so the move is not announced
+    // straight back to the console it came from.
+    onSlide: show,
+  });
 
   /** Move, and tell the console where we went. */
   function goto(next) {
     const before = index;
     show(next);
-    if (index !== before) channel?.postMessage({ type: 'slide', index });
+    if (index !== before) sync.announce(index);
   }
-
-  channel?.addEventListener('message', ({ data }) => {
-    if (data?.type === 'slide') show(data.index);
-    // Either side may ask; whoever is asked answers with where it stands.
-    else if (data?.type === 'hello') channel.postMessage({ type: 'slide', index });
-  });
-
-  // Announce ourselves so a freshly opened window lands on the console's slide.
-  channel?.postMessage({ type: 'hello' });
 
   const KEYS = {
     ArrowRight: 1, ArrowDown: 1, PageDown: 1, ' ': 1, Enter: 1,

@@ -242,7 +242,8 @@
 <div id="app"></div>
 
 <script type="module">
-import { computeStatus, formatClock } from './timing.js';
+import { createSync } from '/sync.js';
+import { computeStatus, formatClock } from '/timing.js';
 
 const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
@@ -343,14 +344,20 @@ function runConsole(deck) {
 
   // ---- slide position, shared with the deck window ----
 
-  // One channel per deck. Messages carry 1-based slide numbers, matching what
-  // the deck window and the slide counter show.
-  const channel = new BroadcastChannel(`presenter-${deck.syncId}`);
+  // The console counts slides from 0; the channel speaks the 1-based numbers
+  // the deck window and the slide counter show. Convert at this boundary.
+  const sync = createSync(deck.syncId, {
+    getSlide: () => timer.index + 1,
+    // The deck window moved (clicker, keyboard) — follow it without echoing:
+    // setIndex only moves us, where jumpTo would announce the move straight
+    // back to the window it came from.
+    onSlide: (index) => setIndex(index - 1),
+  });
 
   function jumpTo(index) {
     const clamped = Math.min(Math.max(index, 0), deck.slides.length - 1);
     setIndex(clamped);
-    channel.postMessage({ type: 'slide', index: clamped + 1 });
+    sync.announce(clamped + 1);
   }
 
   function setIndex(index) {
@@ -360,16 +367,6 @@ function runConsole(deck) {
     saveTimer();
     render();
   }
-
-  channel.addEventListener('message', ({ data }) => {
-    // The deck window moved (clicker, keyboard) — follow it, and do not echo.
-    if (data?.type === 'slide') setIndex(data.index - 1);
-    // Either side may ask where the other stands; answer with our own slide.
-    else if (data?.type === 'hello') channel.postMessage({ type: 'slide', index: timer.index + 1 });
-  });
-
-  // If a deck window is already open, adopt its slide — what the room sees wins.
-  channel.postMessage({ type: 'hello' });
 
   function openDeck() {
     // The deck window opens straight onto the current slide, so reopening one

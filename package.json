@@ -12,6 +12,7 @@
     "decks.mjs",
     "render.mjs",
     "server.mjs",
+    "sync.js",
     "timing.js",
     "presenter.html",
     "deck.html"
