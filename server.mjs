@@ -16,7 +16,7 @@ const toolDir = dirname(fileURLToPath(import.meta.url));
 
 // The browser modules both pages import, served by name. An allowlist rather
 // than a static directory: these are the only files of ours the browser needs.
-const BROWSER_MODULES = new Set(['/sync.js', '/timing.js']);
+const BROWSER_MODULES = new Set(['/sync.js', '/timer.js', '/timing.js']);
 
 const MIME = {
   '.css': 'text/css; charset=utf-8',

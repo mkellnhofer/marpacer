@@ -13,6 +13,7 @@
     "render.mjs",
     "server.mjs",
     "sync.js",
+    "timer.js",
     "timing.js",
     "presenter.html",
     "deck.html"

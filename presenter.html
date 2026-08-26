@@ -243,13 +243,11 @@
 
 <script type="module">
 import { createSync } from '/sync.js';
+import { blankTimer, elapsedMs, isIdle, loadTimer, movedTo, onSlideMs, saveTimer, toggled } from '/timer.js';
 import { computeStatus, formatClock } from '/timing.js';
 
 const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
-
-/** Deterministic per deck, so reloading either window rejoins the same channel. */
-const timerKey = (deck) => `presenter-timer-${deck.syncId}`;
 
 let data;
 try {
@@ -310,7 +308,6 @@ function renderPicker() {
 // --------------------------------------------------------------- console
 
 function runConsole(deck) {
-  const TIMER = timerKey(deck);
   const slideCount = deck.slides.length;
 
   // Without a usable plan the console still runs — previews, notes, navigation
@@ -319,27 +316,21 @@ function runConsole(deck) {
 
   // ---- timer, persisted so an accidental reload never loses the clock ----
 
-  const blank = { running: false, startedAt: 0, accMs: 0, index: 0, slideEnteredMs: 0 };
-  let timer = { ...blank, ...readJSON(TIMER) };
+  let timer = loadTimer(deck.syncId);
 
-  const elapsedMs = () => timer.accMs + (timer.running ? Date.now() - timer.startedAt : 0);
-  const saveTimer = () => localStorage.setItem(TIMER, JSON.stringify(timer));
+  const commit = (next) => {
+    timer = next;
+    saveTimer(deck.syncId, timer);
+    render();
+  };
 
   function toggleTimer() {
-    if (timer.running) {
-      timer = { ...timer, running: false, accMs: elapsedMs(), startedAt: 0 };
-    } else {
-      timer = { ...timer, running: true, startedAt: Date.now() };
-    }
-    saveTimer();
-    render();
+    commit(toggled(timer));
   }
 
   function resetTimer() {
-    timer = { ...blank };
-    saveTimer();
+    commit(blankTimer());
     jumpTo(0);
-    render();
   }
 
   // ---- slide position, shared with the deck window ----
@@ -362,10 +353,7 @@ function runConsole(deck) {
 
   function setIndex(index) {
     if (index === timer.index) return;
-    // Remember when this slide went up, in elapsed terms, so pausing is honest.
-    timer = { ...timer, index, slideEnteredMs: elapsedMs() };
-    saveTimer();
-    render();
+    commit(movedTo(timer, index));
   }
 
   function openDeck() {
@@ -501,8 +489,8 @@ function runConsole(deck) {
   // ---- render ----
 
   function render() {
-    const elapsedMin = elapsedMs() / 60000;
-    const idle = !timer.running && timer.accMs === 0;
+    const elapsedMin = elapsedMs(timer) / 60000;
+    const idle = isIdle(timer);
     const current = deck.slides[Math.min(timer.index, slideCount - 1)];
     const next = deck.slides[timer.index + 1] ?? null;
 
@@ -568,7 +556,7 @@ function runConsole(deck) {
           : `${formatClock(status.remainingPlan)} of slides in ${formatClock(status.remainingClock)}`;
     }
 
-    const onSlideMin = Math.max(0, elapsedMs() - timer.slideEnteredMs) / 60000;
+    const onSlideMin = onSlideMs(timer) / 60000;
     const ratio = onSlideMin / current.minutes;
     const bar = $('slide-bar');
     bar.className = `bar ${ratio > 1.5 ? 'bad' : ratio > 1 ? 'warn' : ''}`;
@@ -619,14 +607,6 @@ function drivePreview(iframe, deckUrl, initialSlide) {
   }
 
   return show;
-}
-
-function readJSON(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? {};
-  } catch {
-    return {};
-  }
 }
 
 /** Reset mid-lecture would be painful, so make it a two-click action. */
