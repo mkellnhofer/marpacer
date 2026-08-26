@@ -37,7 +37,12 @@ document.title = decodeURIComponent(deckPath.split('/').pop()).replace(/\.md$/, 
 let slides = [];
 let index = Number(params.get('slide')) || 1;
 
-const clamp = (n) => Math.min(Math.max(Math.round(n) || 1, 1), Math.max(slides.length, 1));
+// Until the slides arrive there is no count to clamp against, so a `go()` that
+// lands early keeps its number and is bounded by the `show()` after the load.
+const clamp = (n) => {
+  const wanted = Math.max(Math.round(n) || 1, 1);
+  return slides.length ? Math.min(wanted, slides.length) : wanted;
+};
 
 function show(next) {
   index = clamp(next);
