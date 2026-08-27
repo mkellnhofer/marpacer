@@ -1,0 +1,134 @@
+/* The console: its header, the two columns under it, and the readouts in
+   them — the styling for console.js and the components it is built from.
+   What it shares with the picker lives in theme.css. */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.deck-title { font-size: 18px; font-weight: 600; }
+
+main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: 16px;
+  padding: 16px 20px;
+  align-items: start;
+}
+@media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+
+.stage { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rail { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* Slide previews are live deck windows, driven by their URL hash. */
+.preview {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.preview iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* The console's buttons are the only way to navigate — a stray click or
+     scroll inside a preview would desync it from the beamer. */
+  pointer-events: none;
+}
+.preview .end {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 14px;
+}
+.preview.at-end .end { display: flex; }
+.preview.at-end iframe { visibility: hidden; }
+
+.nav { display: flex; align-items: center; gap: 14px; }
+.nav button { padding: 14px 26px; font-size: 16px; }
+.nav button:disabled { opacity: .35; cursor: default; }
+.nav-meta { flex: 1; min-width: 0; text-align: center; }
+
+.notes-card { flex: 1; min-height: 96px; display: flex; flex-direction: column; }
+.notes {
+  margin-top: 8px;
+  overflow: auto;
+  max-height: 22vh;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.notes.empty { color: var(--muted); font-style: italic; }
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.counter { font-size: 13px; }
+
+.bar {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transition: width .2s linear;
+}
+.bar > b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  opacity: .75;
+}
+.bar.warn > i { background: var(--warn); }
+.bar.bad  > i { background: var(--bad); }
+
+.bar-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.banner {
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--bad);
+  border-radius: 10px;
+  background: #f8514914;
+  font-size: 13px;
+  max-height: 22vh;
+  overflow: auto;
+}
+.banner b { color: var(--bad); }
+.banner.info { border-color: var(--line); background: var(--panel); }
+.banner.info b { color: var(--text); }
+.banner ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); }

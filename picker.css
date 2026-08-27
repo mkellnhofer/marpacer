@@ -1,0 +1,27 @@
+/* The deck list, and the frame the "no decks" message borrows from it.
+
+   Loaded after theme.css: `.deck-card` overrides `.card`'s padding on the
+   strength of coming later, not of being more specific. */
+
+.picker { padding: 28px 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
+.picker h1 { font-size: 22px; margin: 0 0 4px; }
+.picker p { color: var(--muted); margin: 0 0 22px; }
+.picker p.root { font-size: 13px; margin-top: -16px; }
+
+.deck-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.deck-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  align-items: flex-start;
+  padding: 14px 16px;
+}
+.deck-card .row { display: flex; align-items: center; gap: 8px; width: 100%; }
+.deck-card .title { font-size: 16px; }
+.deck-card .meta { color: var(--muted); font-weight: 400; font-size: 13px; }
+.deck-card .path { font-size: 12px; opacity: .6; }

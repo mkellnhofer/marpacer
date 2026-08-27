@@ -1,0 +1,97 @@
+/* The vocabulary both views are written in: the palette, the page itself,
+   and the handful of classes that mean the same thing wherever they appear.
+
+   Load this first. `.deck-card` and `.card` have the same specificity and both
+   set padding, so the picker's rules have to come after these to win. */
+
+:root {
+  --bg: #14161a;
+  --panel: #1c2027;
+  --panel-2: #232833;
+  --line: #2e3440;
+  --text: #e6e9ef;
+  --muted: #8b93a3;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --ahead: #58a6ff;
+  --accent: #7c8cff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+.spacer { flex: 1; }
+
+.chip {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: var(--muted);
+}
+.chip.over  { color: var(--bad);  border-color: var(--bad); }
+.chip.tight { color: var(--warn); border-color: var(--warn); }
+.chip.ok    { color: var(--ok);   border-color: var(--ok); }
+
+button {
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+button:hover { background: #2b313d; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #10131a; }
+button.primary:hover { filter: brightness(1.1); }
+button.armed { background: var(--bad); border-color: var(--bad); color: #10131a; }
+button.back { padding: 8px 13px; font-size: 17px; line-height: 1.15; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+code {
+  background: var(--panel-2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 13px;
+}
+
+.big { font-size: 40px; font-weight: 700; line-height: 1.05; letter-spacing: -.02em; }
+.sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+.idle { opacity: .35; }
+
+.error { color: var(--bad); }
+
+.drift.ok    { color: var(--ok); }
+.drift.warn  { color: var(--warn); }
+.drift.bad   { color: var(--bad); }
+.drift.ahead { color: var(--ahead); }

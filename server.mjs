@@ -15,9 +15,21 @@ import { fileURLToPath } from 'node:url';
 
 const toolDir = dirname(fileURLToPath(import.meta.url));
 
-// The browser modules both pages import, served by name. An allowlist rather
-// than a static directory: these are the only files of ours the browser needs.
-const BROWSER_MODULES = new Set(['/app.js', '/console.js', '/picker.js', '/preview.js', '/sync.js', '/timer.js', '/timing.js']);
+// The files the pages pull in by name — scripts and stylesheets alike. An
+// allowlist rather than a static directory: these are the only files of ours
+// the browser needs, and nothing else in the tool folder is reachable.
+const PAGE_ASSETS = new Set([
+  '/app.js',
+  '/console.js',
+  '/picker.js',
+  '/preview.js',
+  '/sync.js',
+  '/timer.js',
+  '/timing.js',
+  '/theme.css',
+  '/console.css',
+  '/picker.css',
+]);
 
 // Browser dependencies, resolved out of node_modules once at startup and
 // served from here rather than a CDN, so no network connection is needed.
@@ -54,8 +66,8 @@ export function createPresenterServer({ deckIndex, renderer }) {
       if (path === '/')
         return await sendFile(res, getToolFile('presenter.html'), MIME['.html']);
 
-      if (BROWSER_MODULES.has(path))
-        return await sendFile(res, getToolFile(path.slice(1)), MIME['.js']);
+      if (PAGE_ASSETS.has(path))
+        return await sendFile(res, getToolFile(path.slice(1)), MIME[extname(path)]);
 
       if (VENDOR_MODULES[path])
         return await sendFile(res, VENDOR_MODULES[path], MIME['.js']);

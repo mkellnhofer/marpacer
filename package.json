@@ -19,6 +19,9 @@
     "sync.js",
     "timer.js",
     "timing.js",
+    "theme.css",
+    "console.css",
+    "picker.css",
     "presenter.html",
     "deck.html"
   ],
