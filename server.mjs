@@ -9,6 +9,7 @@
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,7 +17,16 @@ const toolDir = dirname(fileURLToPath(import.meta.url));
 
 // The browser modules both pages import, served by name. An allowlist rather
 // than a static directory: these are the only files of ours the browser needs.
-const BROWSER_MODULES = new Set(['/sync.js', '/timer.js', '/timing.js']);
+const BROWSER_MODULES = new Set(['/app.js', '/console.js', '/picker.js', '/preview.js', '/sync.js', '/timer.js', '/timing.js']);
+
+// Browser dependencies, resolved out of node_modules once at startup and
+// served from here rather than a CDN, so no network connection is needed.
+//
+// Swap to `vue.esm-browser.js` while working on the components — it explains
+// template and prop mistakes that the production build fails silently on.
+const VENDOR_MODULES = {
+  '/vendor/vue.js': createRequire(import.meta.url).resolve('vue/dist/vue.esm-browser.prod.js'),
+};
 
 const MIME = {
   '.css': 'text/css; charset=utf-8',
@@ -46,6 +56,9 @@ export function createPresenterServer({ deckIndex, renderer }) {
 
       if (BROWSER_MODULES.has(path))
         return await sendFile(res, getToolFile(path.slice(1)), MIME['.js']);
+
+      if (VENDOR_MODULES[path])
+        return await sendFile(res, VENDOR_MODULES[path], MIME['.js']);
 
       if (path === '/api/decks')
         return sendJson(res, { root: deckIndex.root, decks: await deckIndex.getDecks() });

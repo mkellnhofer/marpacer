@@ -1,0 +1,359 @@
+// The presenter console: the clock, the plan it is measured against, and the
+// two slide previews.
+//
+// Everything on screen derives from three pieces of state — the deck, the
+// timer, and `now`. The interval below moves `now` and nothing else; every
+// figure on the panel is a computed hanging off it. That is the whole reason
+// this is a component rather than a render function: there is no step where
+// the code decides which readouts to touch.
+
+import { createSync } from '/sync.js';
+import { blankTimer, elapsedMs, isIdle, loadTimer, movedTo, onSlideMs, saveTimer, toggled } from '/timer.js';
+import { computeStatus, formatClock } from '/timing.js';
+import { SlidePreview } from '/preview.js';
+
+/** How often the clock readouts refresh. Fast enough to look continuous. */
+const TICK_MS = 250;
+
+/** How long "Reset" stays armed before it forgets you asked. */
+const RESET_ARMED_MS = 3000;
+
+export const PresenterConsole = {
+  components: { SlidePreview },
+
+  props: {
+    deck: { type: Object, required: true },
+  },
+
+  template: `
+    <header>
+      <button class="back" title="Back to all decks" @click="goBack">←</button>
+      <span class="deck-title">{{ deck.title }}</span>
+      <template v-if="hasPlan">
+        <span class="chip num">plan {{ formatClock(deck.estimatedMinutes) }}</span>
+        <span class="chip" :class="deck.status" :title="deck.note ?? ''">{{ deck.status }}</span>
+      </template>
+      <span v-else class="chip">no timing plan</span>
+      <span class="spacer"></span>
+      <button @click="openDeckWindow">Open deck window</button>
+      <button class="primary" @click="toggleTimer">{{ toggleLabel }}</button>
+      <button :class="{ armed: resetArmed }" @click="pressReset">
+        {{ resetArmed ? 'Reset — sure?' : 'Reset' }}
+      </button>
+    </header>
+
+    <div v-if="!hasPlan" class="banner" :class="{ info: !deck.errors.length }">
+      <b>Running without a timing plan.</b>
+      <template v-if="deck.errors.length">
+        This deck's timing stamps do not hold together:
+        <ul><li v-for="error in deck.errors" :key="error">{{ error }}</li></ul>
+      </template>
+      <template v-else>
+        The deck carries no <code>timing-deck</code> / <code>timing-slide</code>
+        comments, so drift and pace are hidden.
+      </template>
+    </div>
+
+    <main>
+      <section class="stage">
+        <slide-preview :deck-url="deck.url" :slide="current.index" label="Current slide" />
+        <div class="nav">
+          <button :disabled="timer.index === 0" @click="jumpTo(timer.index - 1)">◀ Prev</button>
+          <div class="nav-meta">
+            <span class="label num counter">Slide {{ current.index }} of {{ slideCount }}</span>
+          </div>
+          <button :disabled="timer.index === slideCount - 1" @click="jumpTo(timer.index + 1)">Next ▶</button>
+        </div>
+        <div class="card notes-card">
+          <div class="label">Notes</div>
+          <div class="notes" :class="{ empty: !current.notes }">{{ notesText }}</div>
+        </div>
+      </section>
+
+      <aside class="rail">
+        <div class="stats" :style="hasPlan ? null : { gridTemplateColumns: '1fr' }">
+          <div class="card">
+            <div class="label">Elapsed</div>
+            <div class="big num" :class="{ idle }">{{ formatClock(elapsedMin) }}</div>
+            <div class="sub num">{{ remainingText }}</div>
+          </div>
+          <div v-if="hasPlan" class="card">
+            <div class="label">Drift</div>
+            <div class="big num drift" :class="[status.level, { idle }]">{{ driftText }}</div>
+            <div class="sub">{{ driftLabel }}</div>
+          </div>
+        </div>
+
+        <div v-if="hasPlan" class="card">
+          <div class="label">Pace needed for the remaining slides</div>
+          <div class="big num" :class="pace.classes">{{ pace.text }}</div>
+          <div class="sub">{{ pace.label }}</div>
+        </div>
+
+        <div v-if="hasPlan" class="card">
+          <div class="label">This slide</div>
+          <div class="bar" :class="slideBar.level" style="margin-top: 10px">
+            <i :style="{ width: slideBar.width }"></i>
+          </div>
+          <div class="bar-legend">
+            <span class="num">{{ slideBar.onSlide }}</span>
+            <span class="num">{{ slideBar.plan }}</span>
+          </div>
+        </div>
+
+        <div v-if="hasPlan" class="card">
+          <div class="label">Whole slides</div>
+          <div class="bar" :class="deckBar.level" style="margin-top: 10px">
+            <i :style="{ width: deckBar.width }"></i>
+            <b :style="{ left: deckBar.tickLeft, opacity: idle ? 0 : null }"></b>
+          </div>
+          <div class="bar-legend">
+            <span class="num">{{ deckBar.position }}</span>
+            <span class="num">{{ deckBar.left }}</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="label">Next</div>
+          <slide-preview
+            :deck-url="deck.url"
+            :slide="nextSlideNumber"
+            :at-end="!next"
+            label="Next slide"
+            style="margin-top: 10px"
+          />
+          <div class="sub">{{ nextLabel }}</div>
+        </div>
+      </aside>
+    </main>
+  `,
+
+  data() {
+    return {
+      timer: loadTimer(this.deck.syncId),
+      // The only thing the interval moves. Every clock readout derives from it.
+      now: Date.now(),
+      resetArmed: false,
+    };
+  },
+
+  computed: {
+    slideCount() {
+      return this.deck.slides.length;
+    },
+
+    // Without a usable plan the console still runs — previews, notes,
+    // navigation and the elapsed clock — it just has nothing to compare
+    // the clock against, so the plan panels drop out entirely.
+    hasPlan() {
+      return this.deck.hasPlan;
+    },
+
+    elapsedMin() {
+      return elapsedMs(this.timer, this.now) / 60000;
+    },
+
+    onSlideMin() {
+      return onSlideMs(this.timer, this.now) / 60000;
+    },
+
+    idle() {
+      return isIdle(this.timer);
+    },
+
+    current() {
+      return this.deck.slides[Math.min(this.timer.index, this.slideCount - 1)];
+    },
+
+    next() {
+      return this.deck.slides[this.timer.index + 1] ?? null;
+    },
+
+    /** On the last slide there is nothing after it, so the frame simply stays. */
+    nextSlideNumber() {
+      return this.next ? this.next.index : this.slideCount;
+    },
+
+    status() {
+      return this.hasPlan ? computeStatus(this.deck, this.timer.index, this.elapsedMin) : null;
+    },
+
+    toggleLabel() {
+      if (this.timer.running) return 'Pause';
+      return this.timer.accMs === 0 ? 'Start' : 'Resume';
+    },
+
+    notesText() {
+      return this.current.notes || 'No notes on this slide.';
+    },
+
+    // The preview shows the slide itself; only its budget is worth spelling
+    // out — and only when the plan it came from is one we trust.
+    nextLabel() {
+      if (!this.hasPlan || !this.next || this.next.minutes === null) return '';
+      return `planned ${formatClock(this.next.minutes)}`;
+    },
+
+    remainingText() {
+      if (!this.hasPlan) return '';
+      const plan = formatClock(this.deck.estimatedMinutes);
+      return this.status.remainingClock >= 0 ? `of ${plan} planned` : `over the ${plan} plan`;
+    },
+
+    driftText() {
+      return this.status.drift === 0 ? '0:00' : formatClock(this.status.drift);
+    },
+
+    driftLabel() {
+      const { drift, level } = this.status;
+      return {
+        ok: 'on plan',
+        ahead: `ahead of plan by ${formatClock(-drift)}`,
+        warn: `behind plan by ${formatClock(drift)}`,
+        bad: `behind plan by ${formatClock(drift)} — cut something`,
+      }[level];
+    },
+
+    /** How much faster than planned the rest of the deck has to run. */
+    pace() {
+      const { remainingPlan, remainingClock, requiredSpeed } = this.status;
+
+      if (remainingPlan <= 0) {
+        return { text: 'done', classes: [], label: 'last slide — the plan is spent' };
+      }
+
+      if (remainingClock <= 0) {
+        return {
+          text: '—',
+          classes: ['drift', 'bad'],
+          label: `no plan time left, ${formatClock(remainingPlan)} of slides to go`,
+        };
+      }
+
+      const level = requiredSpeed <= 1.02 ? 'ok' : requiredSpeed <= 1.15 ? 'warn' : 'bad';
+      return {
+        text: `${requiredSpeed.toFixed(2)}×`,
+        classes: ['drift', level, { idle: this.idle }],
+        label:
+          level === 'ok'
+            ? `${formatClock(remainingPlan)} of slides, ${formatClock(remainingClock)} of plan left`
+            : `${formatClock(remainingPlan)} of slides in ${formatClock(remainingClock)}`,
+      };
+    },
+
+    slideBar() {
+      const ratio = this.onSlideMin / this.current.minutes;
+      return {
+        level: ratio > 1.5 ? 'bad' : ratio > 1 ? 'warn' : '',
+        width: `${Math.min(ratio, 1) * 100}%`,
+        onSlide: `${formatClock(this.onSlideMin)} on this slide`,
+        plan: `planned ${formatClock(this.current.minutes)} · leave at ${formatClock(this.current.cumulative)}`,
+      };
+    },
+
+    // The clock filling up the plan, with a tick where the plan says you
+    // should be — fill past the tick means you are running behind.
+    deckBar() {
+      const { level, budget, planPosition, remainingClock } = this.status;
+      return {
+        level: level === 'bad' || level === 'warn' ? level : '',
+        width: `${Math.min(this.elapsedMin / budget, 1) * 100}%`,
+        tickLeft: `${Math.min(planPosition / budget, 1) * 100}%`,
+        position: `Slide ${this.current.index} of ${this.slideCount}`,
+        left:
+          remainingClock >= 0
+            ? `${formatClock(remainingClock)} left of ${formatClock(budget)}`
+            : `${formatClock(-remainingClock)} over ${formatClock(budget)}`,
+      };
+    },
+  },
+
+  // The transitions in timer.js return new objects, so a shallow watch catches
+  // every one of them: persistence is not something any handler has to
+  // remember to do.
+  watch: {
+    timer(value) {
+      saveTimer(this.deck.syncId, value);
+    },
+  },
+
+  created() {
+    // The console counts slides from 0; the channel speaks the 1-based numbers
+    // the deck window and the slide counter show. Convert at this boundary.
+    // Not reactive — it is a connection, not state to render.
+    this.sync = createSync(this.deck.syncId, {
+      getSlide: () => this.timer.index + 1,
+      // The deck window moved (clicker, keyboard) — follow it without echoing:
+      // setIndex only moves us, where jumpTo would announce the move straight
+      // back to the window it came from.
+      onSlide: (index) => this.setIndex(index - 1),
+    });
+  },
+
+  mounted() {
+    this.ticker = setInterval(() => (this.now = Date.now()), TICK_MS);
+    document.addEventListener('keydown', this.onKeydown);
+  },
+
+  unmounted() {
+    clearInterval(this.ticker);
+    clearTimeout(this.resetTimeout);
+    document.removeEventListener('keydown', this.onKeydown);
+  },
+
+  methods: {
+    formatClock,
+
+    toggleTimer() {
+      this.timer = toggled(this.timer);
+    },
+
+    /** Move, and tell the deck window to follow. */
+    jumpTo(index) {
+      const clamped = Math.min(Math.max(index, 0), this.slideCount - 1);
+      this.setIndex(clamped);
+      this.sync.announce(clamped + 1);
+    },
+
+    /** Move without announcing it — the local half of a move. */
+    setIndex(index) {
+      if (index === this.timer.index) return;
+      this.timer = movedTo(this.timer, index);
+    },
+
+    openDeckWindow() {
+      // The deck window opens straight onto the current slide, so reopening
+      // one mid-lecture needs no correction afterwards.
+      const { url, syncId } = this.deck;
+      window.open(`${url}?slide=${this.timer.index + 1}&sync=${syncId}`, `deck-${syncId}`);
+    },
+
+    // The clock is stored per deck, so stepping out to the picker and back
+    // resumes it exactly where it was.
+    goBack() {
+      location.assign('/');
+    },
+
+    /** Reset mid-lecture would be painful, so make it a two-click action. */
+    pressReset() {
+      if (this.resetArmed) {
+        clearTimeout(this.resetTimeout);
+        this.resetArmed = false;
+        this.timer = blankTimer();
+        this.jumpTo(0);
+        return;
+      }
+      this.resetArmed = true;
+      this.resetTimeout = setTimeout(() => (this.resetArmed = false), RESET_ARMED_MS);
+    },
+
+    onKeydown(event) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === 'ArrowRight') this.jumpTo(this.timer.index + 1);
+      else if (event.key === 'ArrowLeft') this.jumpTo(this.timer.index - 1);
+      else if (event.key === 's') this.toggleTimer();
+      else return;
+      event.preventDefault();
+    },
+  },
+};

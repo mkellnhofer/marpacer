@@ -12,6 +12,10 @@
     "decks.mjs",
     "render.mjs",
     "server.mjs",
+    "app.js",
+    "console.js",
+    "picker.js",
+    "preview.js",
     "sync.js",
     "timer.js",
     "timing.js",
@@ -19,6 +23,7 @@
     "deck.html"
   ],
   "dependencies": {
-    "@marp-team/marp-core": "^4.4.0"
+    "@marp-team/marp-core": "^4.4.0",
+    "vue": "^3.5.42"
   }
 }
