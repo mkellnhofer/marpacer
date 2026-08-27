@@ -18,100 +18,225 @@ const TICK_MS = 250;
 /** How long "Reset" stays armed before it forgets you asked. */
 const RESET_ARMED_MS = 3000;
 
-export const PresenterConsole = {
-  components: { SlidePreview },
-
+/** A big number with a caption: elapsed, drift, and the pace multiplier. */
+const StatCard = {
   props: {
-    deck: { type: Object, required: true },
+    label: { type: String, required: true },
+    value: { type: String, required: true },
+    valueClass: { type: [String, Array, Object], default: '' },
+    sub: { type: String, default: '' },
+    subClass: { type: [String, Array, Object], default: '' },
   },
 
   template: `
+    <div class="card">
+      <div class="label">{{ label }}</div>
+      <div class="big num" :class="valueClass">{{ value }}</div>
+      <div class="sub" :class="subClass">{{ sub }}</div>
+    </div>
+  `,
+};
+
+/**
+ * A progress bar with a figure at each end. `tick` marks where the plan says
+ * you should be, on the bars that have a plan to compare against.
+ */
+const BarCard = {
+  props: {
+    label: { type: String, required: true },
+    level: { type: String, default: '' },
+    width: { type: String, required: true },
+    tick: { type: String, default: '' },
+    tickHidden: { type: Boolean, default: false },
+    legendLeft: { type: String, required: true },
+    legendRight: { type: String, required: true },
+  },
+
+  template: `
+    <div class="card">
+      <div class="label">{{ label }}</div>
+      <div class="bar" :class="level" style="margin-top: 10px">
+        <i :style="{ width }"></i>
+        <b v-if="tick" :style="{ left: tick, opacity: tickHidden ? 0 : null }"></b>
+      </div>
+      <div class="bar-legend">
+        <span class="num">{{ legendLeft }}</span>
+        <span class="num">{{ legendRight }}</span>
+      </div>
+    </div>
+  `,
+};
+
+/** The deck's name, how it is doing against its plan, and the controls. */
+const ConsoleHeader = {
+  props: {
+    title: { type: String, required: true },
+    hasPlan: { type: Boolean, required: true },
+    planLabel: { type: String, default: '' },
+    status: { type: String, default: '' },
+    note: { type: String, default: '' },
+    toggleLabel: { type: String, required: true },
+    resetArmed: { type: Boolean, default: false },
+  },
+
+  emits: ['back', 'open-deck', 'toggle', 'reset'],
+
+  template: `
     <header>
-      <button class="back" title="Back to all decks" @click="goBack">←</button>
-      <span class="deck-title">{{ deck.title }}</span>
+      <button class="back" title="Back to all decks" @click="$emit('back')">←</button>
+      <span class="deck-title">{{ title }}</span>
       <template v-if="hasPlan">
-        <span class="chip num">plan {{ formatClock(deck.estimatedMinutes) }}</span>
-        <span class="chip" :class="deck.status" :title="deck.note ?? ''">{{ deck.status }}</span>
+        <span class="chip num">plan {{ planLabel }}</span>
+        <span class="chip" :class="status" :title="note">{{ status }}</span>
       </template>
       <span v-else class="chip">no timing plan</span>
       <span class="spacer"></span>
-      <button @click="openDeckWindow">Open deck window</button>
-      <button class="primary" @click="toggleTimer">{{ toggleLabel }}</button>
-      <button :class="{ armed: resetArmed }" @click="pressReset">
+      <button @click="$emit('open-deck')">Open deck window</button>
+      <button class="primary" @click="$emit('toggle')">{{ toggleLabel }}</button>
+      <button :class="{ armed: resetArmed }" @click="$emit('reset')">
         {{ resetArmed ? 'Reset — sure?' : 'Reset' }}
       </button>
     </header>
+  `,
+};
 
-    <div v-if="!hasPlan" class="banner" :class="{ info: !deck.errors.length }">
+/** Why the timing panels are missing — a broken plan, or none at all. */
+const NoPlanBanner = {
+  props: {
+    errors: { type: Array, default: () => [] },
+  },
+
+  template: `
+    <div class="banner" :class="{ info: !errors.length }">
       <b>Running without a timing plan.</b>
-      <template v-if="deck.errors.length">
+      <template v-if="errors.length">
         This deck's timing stamps do not hold together:
-        <ul><li v-for="error in deck.errors" :key="error">{{ error }}</li></ul>
+        <ul><li v-for="error in errors" :key="error">{{ error }}</li></ul>
       </template>
       <template v-else>
         The deck carries no <code>timing-deck</code> / <code>timing-slide</code>
         comments, so drift and pace are hidden.
       </template>
     </div>
+  `,
+};
+
+/** What is on the beamer right now: the slide, the way forward, the notes. */
+const SlideStage = {
+  components: { SlidePreview },
+
+  props: {
+    deckUrl: { type: String, required: true },
+    slide: { type: Number, required: true },
+    slideCount: { type: Number, required: true },
+    notes: { type: String, required: true },
+    hasNotes: { type: Boolean, required: true },
+    atStart: { type: Boolean, required: true },
+    atEnd: { type: Boolean, required: true },
+  },
+
+  emits: ['prev', 'next'],
+
+  template: `
+    <section class="stage">
+      <slide-preview :deck-url="deckUrl" :slide="slide" label="Current slide" />
+      <div class="nav">
+        <button :disabled="atStart" @click="$emit('prev')">◀ Prev</button>
+        <div class="nav-meta">
+          <span class="label num counter">Slide {{ slide }} of {{ slideCount }}</span>
+        </div>
+        <button :disabled="atEnd" @click="$emit('next')">Next ▶</button>
+      </div>
+      <div class="card notes-card">
+        <div class="label">Notes</div>
+        <div class="notes" :class="{ empty: !hasNotes }">{{ notes }}</div>
+      </div>
+    </section>
+  `,
+};
+
+export const PresenterConsole = {
+  components: { BarCard, ConsoleHeader, NoPlanBanner, SlidePreview, SlideStage, StatCard },
+
+  props: {
+    deck: { type: Object, required: true },
+  },
+
+  template: `
+    <console-header
+      :title="deck.title"
+      :has-plan="hasPlan"
+      :plan-label="planLabel"
+      :status="deck.status"
+      :note="deck.note ?? ''"
+      :toggle-label="toggleLabel"
+      :reset-armed="resetArmed"
+      @back="goBack"
+      @open-deck="openDeckWindow"
+      @toggle="toggleTimer"
+      @reset="pressReset"
+    />
+
+    <no-plan-banner v-if="!hasPlan" :errors="deck.errors" />
 
     <main>
-      <section class="stage">
-        <slide-preview :deck-url="deck.url" :slide="current.index" label="Current slide" />
-        <div class="nav">
-          <button :disabled="timer.index === 0" @click="jumpTo(timer.index - 1)">◀ Prev</button>
-          <div class="nav-meta">
-            <span class="label num counter">Slide {{ current.index }} of {{ slideCount }}</span>
-          </div>
-          <button :disabled="timer.index === slideCount - 1" @click="jumpTo(timer.index + 1)">Next ▶</button>
-        </div>
-        <div class="card notes-card">
-          <div class="label">Notes</div>
-          <div class="notes" :class="{ empty: !current.notes }">{{ notesText }}</div>
-        </div>
-      </section>
+      <slide-stage
+        :deck-url="deck.url"
+        :slide="current.index"
+        :slide-count="slideCount"
+        :notes="notesText"
+        :has-notes="!!current.notes"
+        :at-start="timer.index === 0"
+        :at-end="timer.index === slideCount - 1"
+        @prev="jumpTo(timer.index - 1)"
+        @next="jumpTo(timer.index + 1)"
+      />
 
       <aside class="rail">
         <div class="stats" :style="hasPlan ? null : { gridTemplateColumns: '1fr' }">
-          <div class="card">
-            <div class="label">Elapsed</div>
-            <div class="big num" :class="{ idle }">{{ formatClock(elapsedMin) }}</div>
-            <div class="sub num">{{ remainingText }}</div>
-          </div>
-          <div v-if="hasPlan" class="card">
-            <div class="label">Drift</div>
-            <div class="big num drift" :class="[status.level, { idle }]">{{ driftText }}</div>
-            <div class="sub">{{ driftLabel }}</div>
-          </div>
+          <stat-card
+            label="Elapsed"
+            :value="elapsedText"
+            :value-class="{ idle }"
+            :sub="remainingText"
+            sub-class="num"
+          />
+          <stat-card
+            v-if="hasPlan"
+            label="Drift"
+            :value="driftText"
+            :value-class="['drift', status.level, { idle }]"
+            :sub="driftLabel"
+          />
         </div>
 
-        <div v-if="hasPlan" class="card">
-          <div class="label">Pace needed for the remaining slides</div>
-          <div class="big num" :class="pace.classes">{{ pace.text }}</div>
-          <div class="sub">{{ pace.label }}</div>
-        </div>
+        <stat-card
+          v-if="hasPlan"
+          label="Pace needed for the remaining slides"
+          :value="pace.text"
+          :value-class="pace.classes"
+          :sub="pace.label"
+        />
 
-        <div v-if="hasPlan" class="card">
-          <div class="label">This slide</div>
-          <div class="bar" :class="slideBar.level" style="margin-top: 10px">
-            <i :style="{ width: slideBar.width }"></i>
-          </div>
-          <div class="bar-legend">
-            <span class="num">{{ slideBar.onSlide }}</span>
-            <span class="num">{{ slideBar.plan }}</span>
-          </div>
-        </div>
+        <bar-card
+          v-if="hasPlan"
+          label="This slide"
+          :level="slideBar.level"
+          :width="slideBar.width"
+          :legend-left="slideBar.onSlide"
+          :legend-right="slideBar.plan"
+        />
 
-        <div v-if="hasPlan" class="card">
-          <div class="label">Whole slides</div>
-          <div class="bar" :class="deckBar.level" style="margin-top: 10px">
-            <i :style="{ width: deckBar.width }"></i>
-            <b :style="{ left: deckBar.tickLeft, opacity: idle ? 0 : null }"></b>
-          </div>
-          <div class="bar-legend">
-            <span class="num">{{ deckBar.position }}</span>
-            <span class="num">{{ deckBar.left }}</span>
-          </div>
-        </div>
+        <bar-card
+          v-if="hasPlan"
+          label="Whole slides"
+          :level="deckBar.level"
+          :width="deckBar.width"
+          :tick="deckBar.tickLeft"
+          :tick-hidden="idle"
+          :legend-left="deckBar.position"
+          :legend-right="deckBar.left"
+        />
 
         <div class="card">
           <div class="label">Next</div>
@@ -178,9 +303,17 @@ export const PresenterConsole = {
       return this.hasPlan ? computeStatus(this.deck, this.timer.index, this.elapsedMin) : null;
     },
 
+    planLabel() {
+      return this.hasPlan ? formatClock(this.deck.estimatedMinutes) : '';
+    },
+
     toggleLabel() {
       if (this.timer.running) return 'Pause';
       return this.timer.accMs === 0 ? 'Start' : 'Resume';
+    },
+
+    elapsedText() {
+      return formatClock(this.elapsedMin);
     },
 
     notesText() {
@@ -302,8 +435,6 @@ export const PresenterConsole = {
   },
 
   methods: {
-    formatClock,
-
     toggleTimer() {
       this.timer = toggled(this.timer);
     },
