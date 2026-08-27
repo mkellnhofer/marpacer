@@ -4,7 +4,7 @@
 // what identifies the deck, and the clock is keyed to it, so landing on
 // ?deck=… directly has to work the same as clicking a card.
 
-import { formatClock } from '/timing.js';
+import { formatClock } from '/core/timing.js';
 
 /**
  * One deck, summarised. Everything it shows it works out from its own deck,

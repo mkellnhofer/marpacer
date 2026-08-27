@@ -10,26 +10,14 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, extname, join } from 'node:path';
+import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const toolDir = dirname(fileURLToPath(import.meta.url));
-
-// The files the pages pull in by name — scripts and stylesheets alike. An
-// allowlist rather than a static directory: these are the only files of ours
-// the browser needs, and nothing else in the tool folder is reachable.
-const PAGE_ASSETS = new Set([
-  '/app.js',
-  '/console.js',
-  '/picker.js',
-  '/preview.js',
-  '/sync.js',
-  '/timer.js',
-  '/timing.js',
-  '/theme.css',
-  '/console.css',
-  '/picker.css',
-]);
+// Everything the browser may load lives under web/, and everything under web/
+// is meant for the browser — so the whole folder is served, and a request can
+// name any file in it without the server having to be told about it first.
+// Nothing outside it is reachable: see getWebFile.
+const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'web');
 
 // Browser dependencies, resolved out of node_modules once at startup and
 // served from here rather than a CDN, so no network connection is needed.
@@ -64,10 +52,7 @@ export function createPresenterServer({ deckIndex, renderer }) {
       const path = decodeURIComponent(url.pathname);
 
       if (path === '/')
-        return await sendFile(res, getToolFile('presenter.html'), MIME['.html']);
-
-      if (PAGE_ASSETS.has(path))
-        return await sendFile(res, getToolFile(path.slice(1)), MIME[extname(path)]);
+        return await sendFile(res, join(webDir, 'presenter.html'), MIME['.html']);
 
       if (VENDOR_MODULES[path])
         return await sendFile(res, VENDOR_MODULES[path], MIME['.js']);
@@ -100,11 +85,16 @@ export function createPresenterServer({ deckIndex, renderer }) {
         // does not exist is a 404 here rather than a puzzle in the browser.
         if (extname(file) === '.md') {
           await stat(file);
-          return await sendFile(res, getToolFile('deck.html'), MIME['.html']);
+          return await sendFile(res, join(webDir, 'deck.html'), MIME['.html']);
         }
 
         return await sendFile(res, file, MIME[extname(file)]);
       }
+
+      // Last: anything else may name a file under web/. The routes above win,
+      // so a deck or an API path is never shadowed by a file of ours.
+      const webFile = getWebFile(path);
+      if (webFile) return await sendFile(res, webFile, MIME[extname(webFile)]);
 
       send404(res);
     } catch (error) {
@@ -115,8 +105,13 @@ export function createPresenterServer({ deckIndex, renderer }) {
   });
 }
 
-function getToolFile(path) {
-  return join(toolDir, path);
+/**
+ * The file a request names inside web/, or null if it points anywhere else.
+ * `..` in the URL resolves before the check, so it cannot climb out.
+ */
+function getWebFile(urlPath) {
+  const target = resolve(webDir, '.' + urlPath);
+  return target.startsWith(webDir + sep) ? target : null;
 }
 
 function sendText(res, content, type) {

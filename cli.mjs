@@ -8,9 +8,9 @@
 
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
-import { DeckIndex } from './decks.mjs';
-import { createRenderer } from './render.mjs';
-import { createPresenterServer } from './server.mjs';
+import { DeckIndex } from './server/decks.mjs';
+import { createRenderer } from './server/render.mjs';
+import { createPresenterServer } from './server/server.mjs';
 
 const HELP = `marp-presenter — presenter console for Marp decks
 

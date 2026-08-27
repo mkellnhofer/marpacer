@@ -9,21 +9,8 @@
   },
   "files": [
     "cli.mjs",
-    "decks.mjs",
-    "render.mjs",
-    "server.mjs",
-    "app.js",
-    "console.js",
-    "picker.js",
-    "preview.js",
-    "sync.js",
-    "timer.js",
-    "timing.js",
-    "theme.css",
-    "console.css",
-    "picker.css",
-    "presenter.html",
-    "deck.html"
+    "server/",
+    "web/"
   ],
   "dependencies": {
     "@marp-team/marp-core": "^4.4.0",

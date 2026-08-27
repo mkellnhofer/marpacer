@@ -7,10 +7,10 @@
 // this is a component rather than a render function: there is no step where
 // the code decides which readouts to touch.
 
-import { createSync } from '/sync.js';
-import { blankTimer, elapsedMs, isIdle, loadTimer, movedTo, onSlideMs, saveTimer, toggled } from '/timer.js';
-import { computeStatus, formatClock } from '/timing.js';
-import { SlidePreview } from '/preview.js';
+import { createSync } from '/core/sync.js';
+import { blankTimer, elapsedMs, isIdle, loadTimer, movedTo, onSlideMs, saveTimer, toggled } from '/core/timer.js';
+import { computeStatus, formatClock } from '/core/timing.js';
+import { SlidePreview } from '/console/preview.js';
 
 /** How often the clock readouts refresh. Fast enough to look continuous. */
 const TICK_MS = 250;

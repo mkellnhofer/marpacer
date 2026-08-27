@@ -1,8 +1,8 @@
 // The console's root: fetch the deck index, then show either the picker or one
 // deck's console, depending on ?deck= in the URL.
 
-import { DeckPicker } from '/picker.js';
-import { PresenterConsole } from '/console.js';
+import { DeckPicker } from '/console/picker.js';
+import { PresenterConsole } from '/console/console.js';
 
 export const PresenterApp = {
   components: { DeckPicker, PresenterConsole },
