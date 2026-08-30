@@ -10,7 +10,7 @@ footer: '04-no-timing'
 No `timing-deck`, no `timing-slide`.
 
 <!-- The console should show the 'running without a timing plan' banner,
-and hide drift, pace and both bars. -->
+and hide buffer, pace and both bars. -->
 
 ---
 

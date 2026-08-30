@@ -91,7 +91,7 @@ code {
 
 .error { color: var(--bad); }
 
-.drift.ok    { color: var(--ok); }
-.drift.warn  { color: var(--warn); }
-.drift.bad   { color: var(--bad); }
-.drift.ahead { color: var(--ahead); }
+.state.ok    { color: var(--ok); }
+.state.warn  { color: var(--warn); }
+.state.bad   { color: var(--bad); }
+.state.ahead { color: var(--ahead); }

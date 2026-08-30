@@ -14,7 +14,7 @@ footer: '03-timing-over'
   "deltaMinutes": 7,
   "status": "over",
   "slideCount": 4,
-  "note": "Deliberately over budget, so the status chip reads 'over' and drift reddens fast."
+  "note": "Deliberately over budget, so the status chip reads 'over' and the buffer reddens fast."
 }
 -->
 
@@ -30,7 +30,7 @@ footer: '03-timing-over'
 
 ## Leave the clock running
 
-Pace climbs, drift turns red, and the whole-slides bar runs past its tick.
+Pace climbs, the buffer turns red, and the whole-slides bar runs past its tick.
 
 ---
 

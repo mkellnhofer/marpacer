@@ -48,9 +48,9 @@ deck still has a usable plan, so every readout stays live.
 
 <!-- timing-slide {"index": 4, "kind": "content", "title": "Drift on a tight plan", "minutes": 8, "cumulative": 35} -->
 
-## Drift on a tight plan
+## Buffer on a tight plan
 
-With almost no slack, a slide that runs long turns drift amber quickly and
+With almost no slack, a slide that runs long turns the buffer amber quickly and
 pushes the required pace above 1.00×.
 
 ---

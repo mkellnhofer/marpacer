@@ -9,7 +9,7 @@
 
 import { createSync } from '/core/sync.js';
 import { blankTimer, elapsedMs, isIdle, loadTimer, movedTo, onSlideMs, saveTimer, toggled } from '/core/timer.js';
-import { computeStatus, formatClock } from '/core/timing.js';
+import { computeStatus, formatClock, formatSigned } from '/core/timing.js';
 import { SlidePreview } from '/console/preview.js';
 
 /** How often the clock readouts refresh. Fast enough to look continuous. */
@@ -18,7 +18,7 @@ const TICK_MS = 250;
 /** How long "Reset" stays armed before it forgets you asked. */
 const RESET_ARMED_MS = 3000;
 
-/** A big number with a caption: elapsed, drift, and the pace multiplier. */
+/** A big number with a caption: elapsed, buffer, and the pace multiplier. */
 const StatCard = {
   props: {
     label: { type: String, required: true },
@@ -44,7 +44,7 @@ const StatCard = {
 const BarCard = {
   props: {
     label: { type: String, required: true },
-    level: { type: String, default: '' },
+    state: { type: String, default: '' },
     width: { type: String, required: true },
     tick: { type: String, default: '' },
     tickHidden: { type: Boolean, default: false },
@@ -55,7 +55,7 @@ const BarCard = {
   template: `
     <div class="card">
       <div class="label">{{ label }}</div>
-      <div class="bar" :class="level" style="margin-top: 10px">
+      <div class="bar" :class="state" style="margin-top: 10px">
         <i :style="{ width }"></i>
         <b v-if="tick" :style="{ left: tick, opacity: tickHidden ? 0 : null }"></b>
       </div>
@@ -115,7 +115,7 @@ const NoPlanBanner = {
       </template>
       <template v-else>
         The deck carries no <code>timing-deck</code> / <code>timing-slide</code>
-        comments, so drift and pace are hidden.
+        comments, so buffer and pace are hidden.
       </template>
     </div>
   `,
@@ -203,10 +203,10 @@ export const PresenterConsole = {
           />
           <stat-card
             v-if="hasPlan"
-            label="Drift"
-            :value="driftText"
-            :value-class="['drift', status.level, { idle }]"
-            :sub="driftLabel"
+            label="Buffer"
+            :value="bufferText"
+            :value-class="['state', status.bufferLevel, { idle }]"
+            :sub="bufferLabel"
           />
         </div>
 
@@ -221,7 +221,7 @@ export const PresenterConsole = {
         <bar-card
           v-if="hasPlan"
           label="This slide"
-          :level="slideBar.level"
+          :state="slideBar.state"
           :width="slideBar.width"
           :legend-left="slideBar.onSlide"
           :legend-right="slideBar.plan"
@@ -230,7 +230,7 @@ export const PresenterConsole = {
         <bar-card
           v-if="hasPlan"
           label="Whole slides"
-          :level="deckBar.level"
+          :state="deckBar.state"
           :width="deckBar.width"
           :tick="deckBar.tickLeft"
           :tick-hidden="idle"
@@ -333,18 +333,20 @@ export const PresenterConsole = {
       return this.status.remainingClock >= 0 ? `of ${plan} planned` : `over the ${plan} plan`;
     },
 
-    driftText() {
-      return this.status.drift === 0 ? '0:00' : formatClock(this.status.drift);
+    // Signed both ways round: + minutes are yours to spend, − minutes are owed.
+    bufferText() {
+      return formatSigned(this.status.buffer);
     },
 
-    driftLabel() {
-      const { drift, level } = this.status;
+    // The figure above says how far off and its colour says how bad; the
+    // caption is only left with which way.
+    bufferLabel() {
       return {
         ok: 'on plan',
-        ahead: `ahead of plan by ${formatClock(-drift)}`,
-        warn: `behind plan by ${formatClock(drift)}`,
-        bad: `behind plan by ${formatClock(drift)} — cut something`,
-      }[level];
+        ahead: 'ahead of plan',
+        warn: 'behind plan',
+        bad: 'behind plan',
+      }[this.status.bufferLevel];
     },
 
     /** How much faster than planned the rest of the deck has to run. */
@@ -358,17 +360,17 @@ export const PresenterConsole = {
       if (remainingClock <= 0) {
         return {
           text: '—',
-          classes: ['drift', 'bad'],
+          classes: ['state', 'bad'],
           label: `no plan time left, ${formatClock(remainingPlan)} of slides to go`,
         };
       }
 
-      const level = requiredSpeed <= 1.02 ? 'ok' : requiredSpeed <= 1.15 ? 'warn' : 'bad';
+      const state = requiredSpeed <= 1.02 ? 'ok' : requiredSpeed <= 1.15 ? 'warn' : 'bad';
       return {
         text: `${requiredSpeed.toFixed(2)}×`,
-        classes: ['drift', level, { idle: this.idle }],
+        classes: ['state', state, { idle: this.idle }],
         label:
-          level === 'ok'
+          state === 'ok'
             ? `${formatClock(remainingPlan)} of slides, ${formatClock(remainingClock)} of plan left`
             : `${formatClock(remainingPlan)} of slides in ${formatClock(remainingClock)}`,
       };
@@ -377,7 +379,7 @@ export const PresenterConsole = {
     slideBar() {
       const ratio = this.onSlideMin / this.current.minutes;
       return {
-        level: ratio > 1.5 ? 'bad' : ratio > 1 ? 'warn' : '',
+        state: ratio > 1.5 ? 'bad' : ratio > 1 ? 'warn' : '',
         width: `${Math.min(ratio, 1) * 100}%`,
         onSlide: `${formatClock(this.onSlideMin)} on this slide`,
         plan: `planned ${formatClock(this.current.minutes)} · leave at ${formatClock(this.current.cumulative)}`,
@@ -387,9 +389,9 @@ export const PresenterConsole = {
     // The clock filling up the plan, with a tick where the plan says you
     // should be — fill past the tick means you are running behind.
     deckBar() {
-      const { level, budget, planPosition, remainingClock } = this.status;
+      const { bufferLevel, budget, planPosition, remainingClock } = this.status;
       return {
-        level: level === 'bad' || level === 'warn' ? level : '',
+        state: bufferLevel === 'bad' || bufferLevel === 'warn' ? bufferLevel : '',
         width: `${Math.min(this.elapsedMin / budget, 1) * 100}%`,
         tickLeft: `${Math.min(planPosition / budget, 1) * 100}%`,
         position: `Slide ${this.current.index} of ${this.slideCount}`,

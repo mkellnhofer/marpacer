@@ -1,4 +1,4 @@
-// The drift and pace maths behind the presenter console.
+// The buffer and pace maths behind the presenter console.
 //
 // This is the one module the browser loads directly, so it must stay free of
 // Node builtins and of any build step. Everything it needs comes in as plain
@@ -23,7 +23,8 @@ export function computeStatus(deck, index0, elapsedMin) {
   // plan"; outside it, the plan sticks to the window's near edge.
   const planPosition = Math.min(Math.max(elapsedMin, current.start), current.cumulative);
 
-  const drift = elapsedMin - planPosition; // + behind, − ahead, 0 on plan
+  // Signed the way a presenter reads it: + is time in hand, − is time owed.
+  const buffer = planPosition - elapsedMin;
   const remainingClock = budget - elapsedMin;
   const remainingPlan = budget - planPosition;
 
@@ -33,8 +34,8 @@ export function computeStatus(deck, index0, elapsedMin) {
     next: slides[i + 1] ?? null,
     budget,
     planPosition,
-    drift,
-    level: driftLevel(drift),
+    buffer,
+    bufferLevel: bufferLevel(buffer),
     remainingClock,
     remainingPlan,
     // How much faster than planned you must talk to still land on estimatedMinutes.
@@ -43,16 +44,30 @@ export function computeStatus(deck, index0, elapsedMin) {
   };
 }
 
-function driftLevel(drift) {
-  if (drift < -1) return 'ahead';
-  if (drift <= 1) return 'ok';
-  if (drift <= 3) return 'warn';
+function bufferLevel(buffer) {
+  if (buffer > 1) return 'ahead';
+  if (buffer >= -1) return 'ok';
+  if (buffer >= -3) return 'warn';
   return 'bad';
 }
 
 /** Minutes → `12:30`, negatives → `−1:05`. */
 export function formatClock(minutes) {
-  const sign = minutes < 0 ? '−' : '';
+  return formatMinutes(minutes, minutes < 0 ? '−' : '');
+}
+
+/**
+ * Minutes with the sign always spelled out — `+2:30`, `−1:05`, `0:00`. The
+ * buffer is read at a glance mid-sentence, so its direction cannot hang on
+ * spotting a missing character.
+ */
+export function formatSigned(minutes) {
+  const rounded = Math.round(minutes * 60) / 60;
+  if (rounded === 0) return formatMinutes(0, '');
+  return formatMinutes(rounded, rounded < 0 ? '−' : '+');
+}
+
+function formatMinutes(minutes, sign) {
   const totalSeconds = Math.floor(Math.abs(minutes) * 60 + 0.5);
   const mins = Math.floor(totalSeconds / 60);
   return `${sign}${mins}:${String(totalSeconds % 60).padStart(2, '0')}`;

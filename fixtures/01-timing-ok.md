@@ -32,12 +32,12 @@ Every slide here carries a timing stamp.
 
 ## What this deck exercises
 
-- Drift, pace and both progress bars
+- Buffer, pace and both progress bars
 - Speaker notes, including multi-line ones
 - Several slide kinds
 
 <!-- The rail should show every card:
-elapsed, drift, pace, this slide, whole slides. -->
+elapsed, buffer, pace, this slide, whole slides. -->
 
 ---
 
@@ -74,7 +74,7 @@ The stamp records `"title": null`.
 ## Code in several languages
 
 ```js
-const drift = elapsed - planned;
+const buffer = planned - elapsed;
 ```
 
 ```css
@@ -96,7 +96,7 @@ section { color: rebeccapurple; }
 
 | Readout | Shows |
 |---------|-------|
-| Drift   | how far off plan |
+| Buffer  | time in hand against the plan |
 | Pace    | how much faster to run |
 
 > A blockquote, for good measure.
