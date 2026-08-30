@@ -7,8 +7,8 @@ import { extname, join, relative, resolve, sep } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'dist', 'node_modules']);
 
-const DECK_RE = /<!-- timing-deck\n([\s\S]*?)\n-->/;
-const SLIDE_RE = /<!-- timing-slide (\{.*?\}) -->/;
+const DECK_RE = /<!-- timing-deck\n([\s\S]*?)\n-->/g;
+const SLIDE_RE = /<!-- timing-slide (\{.*?\}) -->/g;
 const FRONT_MATTER_RE = /^---\n[\s\S]*?\n---\n/;
 const COMMENT_RE = /<!--([\s\S]*?)-->/g;
 const FENCE_RE = /^```[\s\S]*?^```/gm;
@@ -185,12 +185,15 @@ function parseDeck(src, file = '') {
 
 /** The deck's `timing-deck` stamp, or `null` when it has none. */
 function parsePlan(src, errors) {
-  const match = src.match(DECK_RE);
-  if (!match) return null;
+  const stamps = stampsIn(src, DECK_RE);
+  if (stamps.length === 0) return null;
+
+  if (stamps.length > 1)
+    errors.push(`${stamps.length} timing-deck comments — a deck carries one`);
 
   let plan;
   try {
-    plan = JSON.parse(match[1]);
+    plan = JSON.parse(stamps[0]);
   } catch {
     errors.push('timing-deck comment is not valid JSON');
     return null;
@@ -221,12 +224,15 @@ function parseSlide(chunk, position, errors) {
     stamped: false,
   };
 
-  const match = chunk.match(SLIDE_RE);
-  if (!match) return slide;
+  const stamps = stampsIn(chunk, SLIDE_RE);
+  if (stamps.length === 0) return slide;
+
+  if (stamps.length > 1)
+    errors.push(`slide ${index}: ${stamps.length} timing-slide stamps — a slide carries one`);
 
   let stamp;
   try {
-    stamp = JSON.parse(match[1]);
+    stamp = JSON.parse(stamps[0]);
   } catch {
     errors.push(`slide ${index}: timing-slide stamp is not valid JSON`);
     return slide;
@@ -327,6 +333,11 @@ function extractNotes(chunk) {
 function headingOf(chunk) {
   const heading = chunk.replace(FENCE_RE, '').match(/^#{1,6}\s+(.+?)\s*$/m);
   return heading ? heading[1] : null;
+}
+
+/** The stamp bodies in a deck or a slide — more than one is the caller's problem. */
+function stampsIn(text, pattern) {
+  return [...text.matchAll(pattern)].map((match) => match[1]);
 }
 
 /** Fields a stamp no longer knows — usually left over from an older format. */
