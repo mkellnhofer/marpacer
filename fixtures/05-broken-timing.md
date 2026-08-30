@@ -7,42 +7,47 @@ footer: '05-broken-timing'
 
 <!-- timing-deck
 {
-  "block": "04",
-  "lectureBudgetMinutes": 45,
-  "exerciseBudgetMinutes": 45,
-  "estimatedMinutes": 17,
-  "deltaMinutes": -28,
-  "status": "ok",
-  "slideCount": 4,
-  "note": "Intentionally inconsistent: one running total is wrong and the last slide lost its stamp."
+  "targetMinutes": 45,
+  "note": "Intentionally broken: every way a slimmed-down stamp can still go wrong."
 }
 -->
 
-<!-- timing-slide {"index": 1, "kind": "title", "title": "Broken Stamps", "minutes": 2, "cumulative": 2} -->
+<!-- timing-slide {"minutes": 2} -->
 
 # Broken Stamps
 
-This deck's plan does not add up, on purpose.
+This deck's stamps do not hold up, on purpose. Only what cannot be derived is
+stamped, so these are the four failures left to catch.
 
 ---
 
-<!-- timing-slide {"index": 2, "kind": "content", "title": "This slide's cumulative is wrong", "minutes": 5, "cumulative": 10} -->
+<!-- timing-slide {"minutes": 5, "cumulative": 7} -->
 
-## This slide's cumulative is wrong
+## A field left over from the old format
 
-Its stamp claims a running total three minutes ahead of the real one.
+`cumulative` is computed now, so a stamp that still carries one is stale.
 
 ---
 
-<!-- timing-slide {"index": 3, "kind": "content", "title": "This one is fine", "minutes": 5, "cumulative": 12} -->
+<!-- timing-slide {"minutes": "five"} -->
 
-## This one is fine
+## Minutes that are not a number
+
+A stamp has to carry a number above 0.
+
+---
+
+<!-- timing-slide {"minutes": 4,} -->
+
+## A stamp that is not valid JSON
+
+That trailing comma makes the whole stamp unreadable.
 
 ---
 
 ## This slide has no stamp at all
 
-So the stamped count no longer matches the number of slides.
+So the deck has more slides than stamps.
 
-<!-- `check` should report both problems, and the console should list
+<!-- `check` should report all four problems, and the console should list
 them in a red banner and fall back to no-plan mode. -->

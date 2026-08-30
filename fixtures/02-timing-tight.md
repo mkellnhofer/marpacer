@@ -7,18 +7,12 @@ footer: '02-tight-timing'
 
 <!-- timing-deck
 {
-  "block": "05",
-  "lectureBudgetMinutes": 45,
-  "exerciseBudgetMinutes": 45,
-  "estimatedMinutes": 43,
-  "deltaMinutes": -2,
-  "status": "tight",
-  "slideCount": 6,
-  "note": "Less than a tenth of the target, so the status reads 'tight' rather than 'ok'."
+  "targetMinutes": 45,
+  "note": "43 stamped minutes against a 45 minute target: two minutes spare, less than a tenth of the target, so the status reads 'tight' rather than 'ok'."
 }
 -->
 
-<!-- timing-slide {"index": 1, "kind": "title", "title": "A Deck With No Room", "minutes": 5, "cumulative": 5} -->
+<!-- timing-slide {"minutes": 5} -->
 
 # A Deck With No Room
 
@@ -26,7 +20,7 @@ footer: '02-tight-timing'
 
 ---
 
-<!-- timing-slide {"index": 2, "kind": "content", "title": "Where the band sits", "minutes": 12, "cumulative": 17} -->
+<!-- timing-slide {"minutes": 12} -->
 
 ## Where the band sits
 
@@ -37,7 +31,7 @@ minutes here. Two minutes are left, so this deck is inside that band.
 
 ---
 
-<!-- timing-slide {"index": 3, "kind": "content", "title": "What to watch", "minutes": 10, "cumulative": 27} -->
+<!-- timing-slide {"minutes": 10} -->
 
 ## What to watch
 
@@ -46,7 +40,7 @@ deck still has a usable plan, so every readout stays live.
 
 ---
 
-<!-- timing-slide {"index": 4, "kind": "content", "title": "Drift on a tight plan", "minutes": 8, "cumulative": 35} -->
+<!-- timing-slide {"minutes": 8} -->
 
 ## Buffer on a tight plan
 
@@ -55,7 +49,7 @@ pushes the required pace above 1.00×.
 
 ---
 
-<!-- timing-slide {"index": 5, "kind": "content", "title": "Recap", "minutes": 8, "cumulative": 43} -->
+<!-- timing-slide {"minutes": 8} -->
 
 ## Recap
 

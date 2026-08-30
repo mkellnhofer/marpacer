@@ -28,13 +28,14 @@ Comments inside fenced code blocks are left alone — those are HTML being taugh
 ## Timing stamps
 
 The plan lives in HTML comments, which Marp treats as presenter notes, so they never
-render onto a slide. One `timing-deck` block per deck, directly after the front matter:
+render onto a slide. A stamp carries only what cannot be derived from the deck itself —
+everything else is computed while parsing, so it cannot fall out of sync with the slides.
+
+One `timing-deck` block per deck, directly after the front matter:
 
 ```
 <!-- timing-deck
-{ "block": "1a", "lectureBudgetMinutes": 45, "exerciseBudgetMinutes": 45,
-  "estimatedMinutes": 58.5, "deltaMinutes": 13.5, "status": "over",
-  "slideCount": 30, "note": "where this deck is likely to slip" }
+{ "targetMinutes": 45, "note": "where this deck is likely to slip" }
 -->
 ```
 
@@ -42,17 +43,27 @@ and one `timing-slide` comment per slide, on a single line, first thing in the s
 (after a `_class:` directive if the slide has one):
 
 ```
-<!-- timing-slide {"index": 9, "kind": "content", "title": "Anatomy of a URL", "minutes": 4, "cumulative": 16} -->
+<!-- timing-slide {"minutes": 4} -->
 ```
 
-`cumulative` is the running total from slide 1 — where the clock should stand when you
-leave that slide. Fields the console does not read — `block`, `exerciseBudgetMinutes`,
-and `kind` — are carried along and ignored, so a deck that has no id or index needs
-neither. `status` is `over` when the estimate exceeds `lectureBudgetMinutes`,
-`tight` with 4 minutes or less to spare, otherwise `ok`.
+| Stamped         | Meaning                                                 |
+|-----------------|---------------------------------------------------------|
+| `targetMinutes` | The slot the deck has to fit, e.g. `45`                 |
+| `note`          | Optional prose: where this deck is likely to slip       |
+| `minutes`       | Estimate for one slide                                  |
 
-Nothing recomputes `index` or `cumulative`, so inserting, deleting or reordering a slide
-silently desyncs every stamp after it.
+| Computed                     | How                                                    |
+|------------------------------|--------------------------------------------------------|
+| `estimatedMinutes`           | Sum of every slide's `minutes`                         |
+| `remainingMinutes`           | `targetMinutes - estimatedMinutes`                     |
+| `status`                     | `over` past the target · `tight` with less than a tenth of the target to spare · `ok` |
+| slide `index`                | The slide's position in the deck                       |
+| slide `start` / `cumulative` | Running total — where the clock should stand when you enter and leave that slide |
+| slide `title`                | The slide's own heading, or `null` on a slide with none |
+
+`check` reports what is left to get wrong: a stamp that is not valid JSON, `minutes` or
+`targetMinutes` that is not a number above 0, a slide with no stamp, and any field a
+stamp no longer knows — an `index` or `cumulative` left over from an older deck.
 
 ## Themes and rendering
 

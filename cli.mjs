@@ -132,7 +132,13 @@ function checkDecks(decks) {
       console.log(`  FAIL  ${deck.file}`);
       for (const error of deck.errors) console.log(`          ${error}`);
     } else if (deck.hasPlan) {
-      console.log(`  OK    ${deck.file}  (${deck.estimatedMinutes} min, ${deck.slideCount} slide(s))`);
+      console.log(
+        `  OK    ${deck.file}  (`
+        + `${deck.estimatedMinutes} of ${deck.targetMinutes} min, `
+        + `${deck.slides.length} slide(s), `
+        + `${deck.status}`
+        + `)`,
+      );
     } else {
       console.log(`  --    ${deck.file}  (no timing plan, ${deck.slides.length} slide(s))`);
     }

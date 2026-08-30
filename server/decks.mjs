@@ -7,13 +7,15 @@ import { extname, join, relative, resolve, sep } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'dist', 'node_modules']);
 
-// Slide minutes are authored with one decimal, so compare with a tolerance.
-const EPS = 1e-6;
 const DECK_RE = /<!-- timing-deck\n([\s\S]*?)\n-->/;
 const SLIDE_RE = /<!-- timing-slide (\{.*?\}) -->/;
 const FRONT_MATTER_RE = /^---\n[\s\S]*?\n---\n/;
 const COMMENT_RE = /<!--([\s\S]*?)-->/g;
 const FENCE_RE = /^```[\s\S]*?^```/gm;
+
+// Everything else about a deck's timing is derived, not stamped.
+const PLAN_FIELDS = new Set(['targetMinutes', 'note']);
+const SLIDE_FIELDS = new Set(['minutes']);
 
 // Marp reads these comments as directives, not as speaker notes.
 const DIRECTIVE_RE =
@@ -138,76 +140,153 @@ function gitIgnored(root, files) {
  * Parse one deck's Markdown into `{ …deck fields, slides, hasPlan, errors }`.
  * `file` is the path relative to the deck root, e.g. `week-01/lecture-1.md`.
  *
+ * A stamp carries only what cannot be derived: the deck's target, and each
+ * slide's minutes. Slide numbers, running totals, the deck's estimate and its
+ * status are computed here, so editing a deck cannot desync them.
+ *
  * This never throws. A deck with no timing stamps, or with stamps that do not
  * hold together, still yields its slides, titles and notes — the presenter can
  * run those without a plan, showing only the elapsed clock.
  */
 function parseDeck(src, file = '') {
-  const chunks = splitSlides(src);
   const errors = [];
+  const chunks = splitSlides(src);
+  const plan = parsePlan(src, errors);
+  const slides = chunks.map((chunk, position) => parseSlide(chunk, position, errors));
 
-  const slides = chunks.map((chunk, position) => {
-    const notes = extractNotes(chunk);
-    const stamp = chunk.match(SLIDE_RE);
-
-    if (stamp) {
-      try {
-        const slide = JSON.parse(stamp[1]);
-        // Where the clock should stand when this slide goes up.
-        slide.start = round(slide.cumulative - slide.minutes);
-        return { ...slide, notes, stamped: true };
-      } catch {
-        errors.push(`slide ${position + 1}: timing-slide stamp is not valid JSON`);
-      }
-    }
-
-    return {
-      index: position + 1,
-      kind: null,
-      title: headingOf(chunk),
-      minutes: null,
-      cumulative: null,
-      start: null,
-      notes,
-      stamped: false,
-    };
-  });
-
-  let meta = null;
-  const deckMatch = src.match(DECK_RE);
-  if (deckMatch) {
-    try {
-      meta = JSON.parse(deckMatch[1]);
-    } catch {
-      errors.push('timing-deck comment is not valid JSON');
-    }
+  if (plan) {
+    errors.push(...validatePlan(plan, slides));
+  } else if (slides.some((slide) => slide.stamped)) {
+    const stamped = slides.filter((slide) => slide.stamped).length;
+    errors.push(
+      `${stamped} slide${stamped === 1 ? '' : 's'} carry stamps but the deck has no timing-deck comment`,
+    );
   }
 
-  const stamped = slides.filter((slide) => slide.stamped);
+  // No stamps at all is not an error — it is simply a deck without a plan.
+  const hasPlan = Boolean(plan) && errors.length === 0;
+  const estimatedMinutes = hasPlan ? round(sumMinutes(slides)) : null;
 
-  const deck = {
-    ...meta,
+  return {
     file,
     // The file name is the deck's name — nothing is inferred from a footer,
     // a leading id, or the folder it sits in.
     title: file.split('/').pop().replace(/\.md$/, ''),
-    markdownSlideCount: chunks.length,
-    slides,
+    targetMinutes: plan?.targetMinutes ?? null,
+    note: plan?.note ?? '',
+    estimatedMinutes,
+    remainingMinutes: hasPlan ? round(plan.targetMinutes - estimatedMinutes) : null,
+    status: hasPlan ? statusOf(plan.targetMinutes, estimatedMinutes) : null,
+    slides: hasPlan ? withRunningTotals(slides) : slides,
+    errors,
+    hasPlan,
   };
+}
 
-  if (meta) {
-    // Validate against the stamped slides only, so a slide that lost its stamp
-    // reads as a missing stamp rather than as a shifted running total.
-    errors.push(...validateDeck({ ...deck, slides: stamped }));
-  } else if (stamped.length > 0) {
-    errors.push(`${stamped.length} slide${stamped.length === 1 ? "" : "s"} carry stamps but the deck has no timing-deck comment`);
+/** The deck's `timing-deck` stamp, or `null` when it has none. */
+function parsePlan(src, errors) {
+  const match = src.match(DECK_RE);
+  if (!match) return null;
+
+  let plan;
+  try {
+    plan = JSON.parse(match[1]);
+  } catch {
+    errors.push('timing-deck comment is not valid JSON');
+    return null;
   }
 
-  // No stamps at all is not an error — it is simply a deck without a plan.
-  deck.stampedCount = stamped.length;
-  deck.errors = errors;
-  deck.hasPlan = Boolean(meta) && errors.length === 0;
-  return deck;
+  if (plan === null || typeof plan !== 'object' || Array.isArray(plan)) {
+    errors.push('timing-deck comment is not a JSON object');
+    return null;
+  }
+
+  return plan;
+}
+
+/**
+ * One slide: its stamped minutes if it carries a usable stamp, plus everything
+ * read from the Markdown itself. `cumulative` and `start` stay null here —
+ * only a deck whose plan holds up gets running totals.
+ */
+function parseSlide(chunk, position, errors) {
+  const index = position + 1;
+  const slide = {
+    index,
+    title: headingOf(chunk),
+    minutes: null,
+    cumulative: null,
+    start: null,
+    notes: extractNotes(chunk),
+    stamped: false,
+  };
+
+  const match = chunk.match(SLIDE_RE);
+  if (!match) return slide;
+
+  let stamp;
+  try {
+    stamp = JSON.parse(match[1]);
+  } catch {
+    errors.push(`slide ${index}: timing-slide stamp is not valid JSON`);
+    return slide;
+  }
+
+  errors.push(...unknownFields(stamp, SLIDE_FIELDS, `slide ${index}: timing-slide`));
+
+  if (!isMinutes(stamp.minutes)) {
+    errors.push(`slide ${index}: minutes is ${JSON.stringify(stamp.minutes ?? null)}, expected a number above 0`);
+    return slide;
+  }
+
+  return { ...slide, minutes: stamp.minutes, stamped: true };
+}
+
+/**
+ * Check what the stamps still can get wrong now that the derived numbers are
+ * computed: a missing target, a slide the author forgot to stamp, and fields
+ * left over from an older stamp format.
+ */
+function validatePlan(plan, slides) {
+  const errors = unknownFields(plan, PLAN_FIELDS, 'timing-deck');
+
+  if (!isMinutes(plan.targetMinutes))
+    errors.push(`targetMinutes is ${JSON.stringify(plan.targetMinutes ?? null)}, expected a number above 0`);
+
+  if (plan.note !== undefined && typeof plan.note !== 'string')
+    errors.push('note is not a string');
+
+  const unstamped = slides.filter((slide) => !slide.stamped).map((slide) => slide.index);
+  if (unstamped.length > 0)
+    errors.push(
+      `slide${unstamped.length === 1 ? '' : 's'} ${unstamped.join(', ')}: no usable timing-slide stamp` +
+        ` — the deck has ${slides.length} slides, ${slides.length - unstamped.length} of them stamped`,
+    );
+
+  return errors;
+}
+
+/** Where the clock should stand when each slide goes up, and when to leave it. */
+function withRunningTotals(slides) {
+  let running = 0;
+
+  return slides.map((slide) => {
+    const start = running;
+    running = round(running + slide.minutes);
+    return { ...slide, start, cumulative: running };
+  });
+}
+
+/**
+ * How the estimate sits against the target: `ok` while a tenth of the target
+ * is still spare, `tight` once that slack is spent, `over` past the target.
+ */
+function statusOf(targetMinutes, estimatedMinutes) {
+  const remaining = targetMinutes - estimatedMinutes;
+
+  if (remaining < 0) return 'over';
+  if (remaining < targetMinutes * 0.1) return 'tight';
+  return 'ok';
 }
 
 /**
@@ -244,58 +323,23 @@ function extractNotes(chunk) {
     .join('\n\n');
 }
 
-/** The slide's own heading, for decks that carry no `title` in a stamp. */
+/** The slide's own heading, for the console and for naming a slide in an error. */
 function headingOf(chunk) {
   const heading = chunk.replace(FENCE_RE, '').match(/^#{1,6}\s+(.+?)\s*$/m);
   return heading ? heading[1] : null;
 }
 
-/**
- * Check the invariants the stamps are supposed to hold. Nothing recomputes
- * `index` / `cumulative`, so editing a deck silently desyncs every stamp after
- * the edit — this is what catches that.
- */
-function validateDeck(deck) {
-  const errors = [];
-  const { slides } = deck;
-
-  if (slides.length !== deck.slideCount)
-    errors.push(`slideCount says ${deck.slideCount}, found ${slides.length} timing-slide stamps`);
-
-  if (deck.markdownSlideCount !== slides.length)
-    errors.push(
-      `deck has ${deck.markdownSlideCount} slides but ${slides.length} are stamped` +
-        ` — a slide is missing its timing-slide comment (or has a stray one)`,
-    );
-
-  let running = 0;
-  slides.forEach((slide, i) => {
-    if (slide.index !== i + 1) errors.push(`slide ${i + 1}: index is stamped ${slide.index}`);
-    running = round(running + slide.minutes);
-    if (Math.abs(slide.cumulative - running) > EPS)
-      errors.push(
-        `slide ${slide.index} (${slide.title ?? '—'}): cumulative is ${slide.cumulative}, running total is ${running}`,
-      );
-  });
-
-  const sum = round(slides.reduce((total, s) => total + s.minutes, 0));
-  if (Math.abs(sum - deck.estimatedMinutes) > EPS)
-    errors.push(`estimatedMinutes is ${deck.estimatedMinutes}, slide minutes sum to ${sum}`);
-
-  const last = slides[slides.length - 1];
-  if (last && Math.abs(last.cumulative - deck.estimatedMinutes) > EPS)
-    errors.push(`last cumulative is ${last.cumulative}, estimatedMinutes is ${deck.estimatedMinutes}`);
-
-  const delta = round(deck.estimatedMinutes - deck.lectureBudgetMinutes);
-  if (Math.abs(delta - deck.deltaMinutes) > EPS)
-    errors.push(`deltaMinutes is ${deck.deltaMinutes}, should be ${delta}`);
-
-  const status = delta > 0 ? 'over' : -delta <= 4 ? 'tight' : 'ok';
-  if (deck.status !== status)
-    errors.push(`status is "${deck.status}", ${delta > 0 ? 'over' : `${-delta} min spare`} means "${status}"`);
-
-  return errors;
+/** Fields a stamp no longer knows — usually left over from an older format. */
+function unknownFields(stamp, known, label) {
+  return Object.keys(stamp)
+    .filter((key) => !known.has(key))
+    .map((key) => `${label} has an unknown field "${key}"`);
 }
+
+/** Minutes are a positive number — everything else is a broken stamp. */
+const isMinutes = (value) => typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+const sumMinutes = (slides) => slides.reduce((total, slide) => total + slide.minutes, 0);
 
 /** Minutes are authored with at most one decimal; keep sums off float dust. */
 function round(value) {
