@@ -61,12 +61,12 @@ and one `timing-slide` comment per slide, on a single line, first thing in the s
 | slide `start` / `cumulative` | Running total — where the clock should stand when you enter and leave that slide |
 | slide `title`                | The slide's own heading, or `null` on a slide with none |
 
-One stamp per slide, one `timing-deck` per deck.
+One stamp per slide, and one `timing-deck` per deck, before the first slide.
 
 `check` reports what is left to get wrong: a stamp that is not valid JSON, `minutes` or
-`targetMinutes` that is not a number above 0, a slide with no stamp, a slide with two,
-and any field a stamp no longer knows — an `index` or `cumulative` left over from an
-older deck.
+`targetMinutes` that is not a number above 0, a slide with no stamp, a slide with two, a
+`timing-deck` comment that turns up twice or sits mid-deck, and any field a stamp no
+longer knows — an `index` or `cumulative` left over from an older deck.
 
 ## Themes and rendering
 

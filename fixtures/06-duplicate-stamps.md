@@ -12,14 +12,6 @@ footer: '06-duplicate-stamps'
 }
 -->
 
-<!-- timing-slide {"minutes": 3} -->
-
-# Two Plans, One Deck
-
-The stamp above is this deck's plan. A second one turns up on the next slide.
-
----
-
 <!-- timing-deck
 {
   "targetMinutes": 90,
@@ -27,12 +19,20 @@ The stamp above is this deck's plan. A second one turns up on the next slide.
 }
 -->
 
+<!-- timing-slide {"minutes": 3} -->
+
+# Two Plans, One Deck
+
+Two `timing-deck` comments, both where a plan belongs. The first one wins.
+
+---
+
 <!-- timing-slide {"minutes": 5} -->
 
-## The second timing-deck comment
+## Which plan is it running on?
 
-The first stamp wins, so `targetMinutes` stays 45 — and `check` says so instead of
-letting the deck run on either plan.
+Neither. `targetMinutes` stays 45 from the first stamp, but the deck is reported
+as broken instead of quietly following one of the two.
 
 ---
 

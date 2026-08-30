@@ -151,7 +151,7 @@ function gitIgnored(root, files) {
 function parseDeck(src, file = '') {
   const errors = [];
   const chunks = splitSlides(src);
-  const plan = parsePlan(src, errors);
+  const plan = parsePlan(chunks, errors);
   const slides = chunks.map((chunk, position) => parseSlide(chunk, position, errors));
 
   if (plan) {
@@ -183,13 +183,29 @@ function parseDeck(src, file = '') {
   };
 }
 
-/** The deck's `timing-deck` stamp, or `null` when it has none. */
-function parsePlan(src, errors) {
-  const stamps = stampsIn(src, DECK_RE);
+/**
+ * The deck's `timing-deck` stamp, or `null` when it has none. A deck carries
+ * one, before the first slide; anything else is an error, but the first stamp
+ * found still gives the deck its plan, so one misplaced stamp reads as exactly
+ * that rather than as a deck with no plan at all.
+ */
+function parsePlan(chunks, errors) {
+  const perSlide = chunks.map((chunk) => stampsIn(chunk, DECK_RE));
+  const stamps = perSlide.flat();
   if (stamps.length === 0) return null;
 
   if (stamps.length > 1)
     errors.push(`${stamps.length} timing-deck comments — a deck carries one`);
+
+  const misplaced = perSlide.flatMap((found, position) =>
+    position > 0 && found.length > 0 ? [position + 1] : [],
+  );
+
+  if (misplaced.length > 0)
+    errors.push(
+      `timing-deck comment${misplaced.length === 1 ? '' : 's'} on slide${misplaced.length === 1 ? '' : 's'}` +
+        ` ${misplaced.join(', ')} — a deck's plan belongs before the first slide`,
+    );
 
   let plan;
   try {
