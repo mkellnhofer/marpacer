@@ -410,6 +410,10 @@ export const PresenterConsole = {
   watch: {
     timer(value) {
       saveTimer(this.deck.syncId, value);
+      // Each of those transitions stamps its own Date.now(), so catch `now` up
+      // in the same breath: the render that follows would otherwise measure a
+      // fresh `startedAt` against the previous tick and read a shade below zero.
+      this.now = Date.now();
     },
   },
 

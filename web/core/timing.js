@@ -53,7 +53,7 @@ function bufferLevel(buffer) {
 
 /** Minutes → `12:30`, negatives → `−1:05`. */
 export function formatClock(minutes) {
-  return formatMinutes(minutes, minutes < 0 ? '−' : '');
+  return formatMinutes(minutes, '');
 }
 
 /**
@@ -62,13 +62,14 @@ export function formatClock(minutes) {
  * spotting a missing character.
  */
 export function formatSigned(minutes) {
-  const rounded = Math.round(minutes * 60) / 60;
-  if (rounded === 0) return formatMinutes(0, '');
-  return formatMinutes(rounded, rounded < 0 ? '−' : '+');
+  return formatMinutes(minutes, '+');
 }
 
-function formatMinutes(minutes, sign) {
-  const totalSeconds = Math.floor(Math.abs(minutes) * 60 + 0.5);
+// Rounded to whole seconds before the sign is picked, so that nothing which
+// reads as `0:00` can carry one — a hair below zero is still zero on a clock.
+function formatMinutes(minutes, plus) {
+  const totalSeconds = Math.round(Math.abs(minutes) * 60);
+  const sign = totalSeconds === 0 ? '' : minutes < 0 ? '−' : plus;
   const mins = Math.floor(totalSeconds / 60);
   return `${sign}${mins}:${String(totalSeconds % 60).padStart(2, '0')}`;
 }
