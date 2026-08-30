@@ -1,11 +1,8 @@
-// The buffer and pace maths behind the presenter console.
+// The buffer maths behind the presenter console.
 //
 // This is the one module the browser loads directly, so it must stay free of
 // Node builtins and of any build step. Everything it needs comes in as plain
 // numbers: a deck's plan, the slide you are on, and minutes on the clock.
-
-// Slide minutes are authored with one decimal, so compare with a tolerance.
-const EPS = 1e-6;
 
 /**
  * Everything the presenter console shows, derived from the deck plan, the
@@ -26,7 +23,6 @@ export function computeStatus(deck, index0, elapsedMin) {
   // Signed the way a presenter reads it: + is time in hand, − is time owed.
   const buffer = planPosition - elapsedMin;
   const remainingClock = budget - elapsedMin;
-  const remainingPlan = budget - planPosition;
 
   return {
     index: i,
@@ -37,9 +33,6 @@ export function computeStatus(deck, index0, elapsedMin) {
     buffer,
     bufferLevel: bufferLevel(buffer),
     remainingClock,
-    remainingPlan,
-    // How much faster than planned you must talk to still land on estimatedMinutes.
-    requiredSpeed: remainingClock > EPS ? remainingPlan / remainingClock : Infinity,
     finished: i === slides.length - 1 && elapsedMin >= current.cumulative,
   };
 }

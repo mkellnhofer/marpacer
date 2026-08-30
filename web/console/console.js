@@ -18,7 +18,7 @@ const TICK_MS = 250;
 /** How long "Reset" stays armed before it forgets you asked. */
 const RESET_ARMED_MS = 3000;
 
-/** A big number with a caption: elapsed, buffer, and the pace multiplier. */
+/** A big number with a caption: the elapsed clock and the buffer. */
 const StatCard = {
   props: {
     label: { type: String, required: true },
@@ -115,7 +115,7 @@ const NoPlanBanner = {
       </template>
       <template v-else>
         The deck carries no <code>timing-deck</code> / <code>timing-slide</code>
-        comments, so buffer and pace are hidden.
+        comments, so the buffer is hidden.
       </template>
     </div>
   `,
@@ -208,13 +208,6 @@ export const PresenterConsole = {
               :value="bufferText"
               :value-class="['state', status.bufferLevel, { idle }]"
               :sub="bufferLabel"
-            />
-            <stat-card
-              v-if="hasPlan"
-              label="Pace"
-              :value="pace.text"
-              :value-class="pace.classes"
-              :sub="pace.label"
             />
           </div>
 
@@ -348,33 +341,6 @@ export const PresenterConsole = {
         warn: 'behind plan',
         bad: 'behind plan',
       }[this.status.bufferLevel];
-    },
-
-    /** How much faster than planned the rest of the deck has to run. */
-    pace() {
-      const { remainingPlan, remainingClock, requiredSpeed } = this.status;
-
-      if (remainingPlan <= 0) {
-        return { text: 'done', classes: [], label: 'last slide — the plan is spent' };
-      }
-
-      if (remainingClock <= 0) {
-        return {
-          text: '—',
-          classes: ['state', 'bad'],
-          label: `no plan time left, ${formatClock(remainingPlan)} of slides to go`,
-        };
-      }
-
-      const state = requiredSpeed <= 1.02 ? 'ok' : requiredSpeed <= 1.15 ? 'warn' : 'bad';
-      return {
-        text: `${requiredSpeed.toFixed(2)}×`,
-        classes: ['state', state, { idle: this.idle }],
-        label:
-          state === 'ok'
-            ? `${formatClock(remainingPlan)} of slides, ${formatClock(remainingClock)} of plan left`
-            : `${formatClock(remainingPlan)} of slides in ${formatClock(remainingClock)}`,
-      };
     },
 
     slideBar() {
