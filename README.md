@@ -1,14 +1,84 @@
 # marpacer
 
-A custom presenter console for [Marp](https://marp.app/) decks.
+**marpacer** is a presenter console for [Marp](https://marp.app/) decks that
+helps you stay on pace while presenting.
+
+Add a time estimate to each slide, and marpacer tracks your progress against the
+plan — showing how long the current slide has been up and how far ahead or behind
+you are.
+
+![The deck picker: one card per deck, showing its estimate, slide count, and
+whether it fits its target](https://raw.githubusercontent.com/mkellnhofer/marpacer/HEAD/screenshot-1.png)
+
+![The presenter console: current slide and speaker notes on the left; elapsed time,
+buffer, and per-slide and whole-deck progress on the right](https://raw.githubusercontent.com/mkellnhofer/marpacer/HEAD/screenshot-2.png)
 
 ## Features
 
-TODO
+- **Pace feedback while you talk.** Each slide carries an estimate, so the console
+  can tell you whether you are ahead or behind, right now, rather than only at the
+  end.
+- **Speaker notes from plain HTML comments.** Nothing to learn and nothing to
+  maintain alongside the deck — the notes sit next to the slide they belong to.
+- **Windows, kept in sync.** The deck goes on the projector, the console stays
+  on your laptop. Moving a slide in one moves it in the other — no clicking back
+  and forth, and no second server.
+- **Real Marp rendering.** It *is* marp-core, so custom themes, math and syntax
+  highlighting behave exactly as they do everywhere else.
+- **A deck picker.** Point it at a folder and it lists every deck it finds, with
+  each one's timing estimate against its target.
 
 ## Use
 
-TODO
+Run it without installing anything:
+
+```bash
+npx github:mkellnhofer/marpacer serve path/to/decks
+```
+
+Or add it to a project, so everyone working on the decks gets the same version:
+
+```bash
+npm install --save-dev github:mkellnhofer/marpacer
+```
+
+```json
+{
+  "scripts": {
+    "present": "marpacer serve --theme-set ./themes .",
+    "check": "marpacer check ."
+  }
+}
+```
+
+`npm run present` finds the command without a global install — npm puts a project's
+executables on `PATH` for its own scripts. To have it everywhere instead:
+
+```bash
+npm install -g github:mkellnhofer/marpacer
+```
+
+### Commands
+
+```
+marpacer serve [options] [dir]   serve the console for the decks under dir
+marpacer check [options] [dir]   verify their timing stamps, exit 1 on problems
+marpacer help                    show this help
+
+dir defaults to the current folder.
+
+  --all              include decks normally hidden: those git ignores
+                     (generated ones) and those whose name starts with _
+  -p, --port <n>     port to listen on (default 4321)      [serve]
+  --theme-set <dir>  folder of theme CSS files             [serve]
+                     (default: <dir>/themes)
+```
+
+Open the console at `http://localhost:4321/`, pick a deck, and put the deck window
+on the projector.
+
+The first run pulls marp-core, which is a chunky dependency — roughly 73 MB, most of
+it the MathJax and KaTeX engines it bundles for math support. Later runs are quick.
 
 ## Speaker notes
 
@@ -70,8 +140,5 @@ Everything else marp-core does works too, because it *is* marp-core: syntax high
 math (`$$…$$`, rendered by MathJax), and auto-scaling directives such as `<!-- fit -->`.
 Marp's browser helper is inlined into each deck page, which is what makes auto-scaling
 work and what keeps SVG slides correct in Safari.
-
-marp-core is the tool's only runtime dependency. It is a chunky one — roughly 73 MB
-installed, most of that the MathJax and KaTeX engines it bundles for math support.
 
 Raw HTML in decks is rendered as written — these are your own files, presented locally.
