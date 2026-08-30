@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// marp-presenter — a custom presenter console for Marp decks with timing estimates.
+// marpacer — a custom presenter console for Marp decks with timing estimates.
 //
-//   marp-presenter serve [dir]    serve the console for every deck under dir
-//   marp-presenter check [dir]    verify the decks' timing stamps
+//   marpacer serve [dir]    serve the console for every deck under dir
+//   marpacer check [dir]    verify the decks' timing stamps
 //
-// Run "marp-presenter help" for options.
+// Run "marpacer help" for options.
 
 import { existsSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
@@ -12,12 +12,12 @@ import { DeckIndex } from './server/decks.mjs';
 import { createRenderer } from './server/render.mjs';
 import { createPresenterServer } from './server/server.mjs';
 
-const HELP = `marp-presenter — presenter console for Marp decks
+const HELP = `marpacer — presenter console for Marp decks
 
 Usage
-  marp-presenter serve [options] [dir]   serve the console for the decks under dir
-  marp-presenter check [options] [dir]   verify their timing stamps, exit 1 on problems
-  marp-presenter help                    show this help
+  marpacer serve [options] [dir]   serve the console for the decks under dir
+  marpacer check [options] [dir]   verify their timing stamps, exit 1 on problems
+  marpacer help                    show this help
 
   dir defaults to the current folder.
 
@@ -48,7 +48,7 @@ function parseArgs(argv) {
   const command = argv[0];
 
   if (command.startsWith('-')) {
-    throw new Error(`Command missing! See "marp-presenter help" for usage.`);
+    throw new Error(`Command missing! See "marpacer help" for usage.`);
   }
 
   const optionArgs = argv.slice(1);
@@ -62,7 +62,7 @@ function parseArgs(argv) {
       options = parseOptions(command, optionArgs, CHECK_DEFAULTS);
       break;
     default:
-      throw new Error(`Unknown command "${command}". See "marp-presenter help" for usage.`);
+      throw new Error(`Unknown command "${command}". See "marpacer help" for usage.`);
   }
 
   return {

@@ -11,7 +11,7 @@ export const PresenterApp = {
     <div v-if="error" class="picker">
       <h1 class="error">No decks</h1>
       <p>{{ error }}. Start the console with
-      <code>marp-presenter &lt;folder with decks&gt;</code> — it serves this page
+      <code>marpacer &lt;folder with decks&gt;</code> — it serves this page
       and renders the decks itself.</p>
     </div>
     <presenter-console v-else-if="deck" :deck="deck" />

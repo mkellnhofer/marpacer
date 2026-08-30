@@ -1,4 +1,4 @@
-# marp-presenter
+# marpacer
 
 A custom presenter console for [Marp](https://marp.app/) decks.
 
@@ -57,7 +57,7 @@ or `over`.
 An apostrophe inside a stamp is written `\'`, because the JSON sits in a single-quoted
 title.
 
-`marp-presenter check` goes through a folder of decks and exits 1 if any stamp is
+`marpacer check` goes through a folder of decks and exits 1 if any stamp is
 unreadable, missing, duplicated, or not a number.
 
 ## Themes and rendering

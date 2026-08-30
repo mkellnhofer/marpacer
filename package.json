@@ -1,11 +1,32 @@
 {
-  "name": "marp-presenter",
+  "name": "marpacer",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "A custom presenter console for Marp/Marpit decks.",
+  "description": "A presenter console for Marp decks, with timing plans that live in the deck.",
+  "keywords": [
+    "marp",
+    "marpit",
+    "presenter",
+    "presentation",
+    "slides",
+    "speaker-notes",
+    "timing"
+  ],
+  "license": "Apache-2.0",
+  "author": "Matthias Kellnhofer <matthias@kellnhofer.com>",
+  "homepage": "https://github.com/mkellnhofer/marpacer#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkellnhofer/marpacer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mkellnhofer/marpacer/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
-    "marp-presenter": "./cli.mjs"
+    "marpacer": "cli.mjs"
   },
   "files": [
     "cli.mjs",

@@ -3,7 +3,7 @@
 Fixtures for the presenter. Point the tool at this folder:
 
 ```bash
-marp-presenter path/to/fixtures
+marpacer path/to/fixtures
 ```
 
 Each deck exercises something specific.
@@ -29,7 +29,7 @@ checks that `--theme-set` loading and theme imports work.
 ## Expected `check` result
 
 ```
-$ marp-presenter check .
+$ marpacer check .
 …
 3 of 12 decks have inconsistent timing stamps.
 ```
