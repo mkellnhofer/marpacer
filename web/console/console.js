@@ -163,94 +163,95 @@ export const PresenterConsole = {
   },
 
   template: `
-    <console-header
-      :title="deck.title"
-      :has-plan="hasPlan"
-      :plan-label="planLabel"
-      :status="deck.status"
-      :note="deck.note ?? ''"
-      :toggle-label="toggleLabel"
-      :reset-armed="resetArmed"
-      @back="goBack"
-      @open-deck="openDeckWindow"
-      @toggle="toggleTimer"
-      @reset="pressReset"
-    />
-
-    <no-plan-banner v-if="!hasPlan" :errors="deck.errors" />
-
-    <main>
-      <slide-stage
-        :deck-url="deck.url"
-        :slide="current.index"
-        :slide-count="slideCount"
-        :notes="notesText"
-        :has-notes="!!current.notes"
-        :at-start="timer.index === 0"
-        :at-end="timer.index === slideCount - 1"
-        @prev="jumpTo(timer.index - 1)"
-        @next="jumpTo(timer.index + 1)"
+    <div class="console">
+      <console-header
+        :title="deck.title"
+        :has-plan="hasPlan"
+        :plan-label="planLabel"
+        :status="deck.status"
+        :note="deck.note ?? ''"
+        :toggle-label="toggleLabel"
+        :reset-armed="resetArmed"
+        @back="goBack"
+        @open-deck="openDeckWindow"
+        @toggle="toggleTimer"
+        @reset="pressReset"
       />
 
-      <aside class="rail">
-        <div class="stats" :style="hasPlan ? null : { gridTemplateColumns: '1fr' }">
-          <stat-card
-            label="Elapsed"
-            :value="elapsedText"
-            :value-class="{ idle }"
-            :sub="remainingText"
-            sub-class="num"
-          />
-          <stat-card
+      <no-plan-banner v-if="!hasPlan" :errors="deck.errors" />
+
+      <main>
+        <slide-stage
+          :deck-url="deck.url"
+          :slide="current.index"
+          :slide-count="slideCount"
+          :notes="notesText"
+          :has-notes="!!current.notes"
+          :at-start="timer.index === 0"
+          :at-end="timer.index === slideCount - 1"
+          @prev="jumpTo(timer.index - 1)"
+          @next="jumpTo(timer.index + 1)"
+        />
+
+        <aside class="rail">
+          <div class="stats">
+            <stat-card
+              label="Elapsed"
+              :value="elapsedText"
+              :value-class="{ idle }"
+              :sub="remainingText"
+              sub-class="num"
+            />
+            <stat-card
+              v-if="hasPlan"
+              label="Buffer"
+              :value="bufferText"
+              :value-class="['state', status.bufferLevel, { idle }]"
+              :sub="bufferLabel"
+            />
+            <stat-card
+              v-if="hasPlan"
+              label="Pace"
+              :value="pace.text"
+              :value-class="pace.classes"
+              :sub="pace.label"
+            />
+          </div>
+
+          <bar-card
             v-if="hasPlan"
-            label="Buffer"
-            :value="bufferText"
-            :value-class="['state', status.bufferLevel, { idle }]"
-            :sub="bufferLabel"
+            label="This slide"
+            :state="slideBar.state"
+            :width="slideBar.width"
+            :legend-left="slideBar.onSlide"
+            :legend-right="slideBar.plan"
           />
-        </div>
 
-        <stat-card
-          v-if="hasPlan"
-          label="Pace needed for the remaining slides"
-          :value="pace.text"
-          :value-class="pace.classes"
-          :sub="pace.label"
-        />
-
-        <bar-card
-          v-if="hasPlan"
-          label="This slide"
-          :state="slideBar.state"
-          :width="slideBar.width"
-          :legend-left="slideBar.onSlide"
-          :legend-right="slideBar.plan"
-        />
-
-        <bar-card
-          v-if="hasPlan"
-          label="Whole slides"
-          :state="deckBar.state"
-          :width="deckBar.width"
-          :tick="deckBar.tickLeft"
-          :tick-hidden="idle"
-          :legend-left="deckBar.position"
-          :legend-right="deckBar.left"
-        />
-
-        <div class="card">
-          <div class="label">Next</div>
-          <slide-preview
-            :deck-url="deck.url"
-            :slide="nextSlideNumber"
-            :at-end="!next"
-            label="Next slide"
-            style="margin-top: 10px"
+          <bar-card
+            v-if="hasPlan"
+            label="Whole slides"
+            :state="deckBar.state"
+            :width="deckBar.width"
+            :tick="deckBar.tickLeft"
+            :tick-hidden="idle"
+            :legend-left="deckBar.position"
+            :legend-right="deckBar.left"
           />
-          <div class="sub">{{ nextLabel }}</div>
-        </div>
-      </aside>
-    </main>
+
+          <div class="card">
+            <div class="label">Next</div>
+            <slide-preview
+              :deck-url="deck.url"
+              :slide="nextSlideNumber"
+              :at-end="!next"
+              label="Next slide"
+              style="margin-top: 10px"
+            />
+            <div class="sub">{{ nextLabel }}</div>
+          </div>
+        </aside>
+      </main>
+    </div>
   `,
 
   data() {
