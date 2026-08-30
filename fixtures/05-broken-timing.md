@@ -5,14 +5,9 @@ paginate: true
 footer: '05-broken-timing'
 ---
 
-<!-- timing-deck
-{
-  "targetMinutes": 45,
-  "note": "Intentionally broken: every way a slimmed-down stamp can still go wrong."
-}
--->
+[timing-deck]: # '{ "targetMinutes": 45, "note": "Intentionally broken: every way a slimmed-down stamp can still go wrong." }'
 
-<!-- timing-slide {"minutes": 2} -->
+[timing-slide]: # '{ "minutes": 2 }'
 
 # Broken Stamps
 
@@ -21,7 +16,7 @@ stamped, so these are the four failures left to catch.
 
 ---
 
-<!-- timing-slide {"minutes": 5, "cumulative": 7} -->
+[timing-slide]: # '{ "minutes": 5, "cumulative": 7 }'
 
 ## A field left over from the old format
 
@@ -29,7 +24,7 @@ stamped, so these are the four failures left to catch.
 
 ---
 
-<!-- timing-slide {"minutes": "five"} -->
+[timing-slide]: # '{ "minutes": "five" }'
 
 ## Minutes that are not a number
 
@@ -37,7 +32,7 @@ A stamp has to carry a number above 0.
 
 ---
 
-<!-- timing-slide {"minutes": 4,} -->
+[timing-slide]: # '{ "minutes": 4, }'
 
 ## A stamp that is not valid JSON
 

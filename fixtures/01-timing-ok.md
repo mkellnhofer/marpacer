@@ -5,14 +5,9 @@ paginate: true
 footer: '01-timing-ok'
 ---
 
-<!-- timing-deck
-{
-  "targetMinutes": 45,
-  "note": "The happy path: 35 stamped minutes against a 45 minute target, so ten minutes of slack and a green status."
-}
--->
+[timing-deck]: # '{ "targetMinutes": 45, "note": "The happy path: 35 stamped minutes against a 45 minute target, so ten minutes of slack and a green status." }'
 
-<!-- timing-slide {"minutes": 1} -->
+[timing-slide]: # '{ "minutes": 1 }'
 
 # A Deck With A Plan
 
@@ -22,7 +17,7 @@ Every slide here carries a timing stamp.
 
 ---
 
-<!-- timing-slide {"minutes": 3} -->
+[timing-slide]: # '{ "minutes": 3 }'
 
 ## What this deck exercises
 
@@ -35,7 +30,7 @@ elapsed, buffer, pace, this slide, whole slides. -->
 
 ---
 
-<!-- timing-slide {"minutes": 6} -->
+[timing-slide]: # '{ "minutes": 6 }'
 
 ## Six minutes, to watch the slide bar fill
 
@@ -47,7 +42,7 @@ Long enough that the *this slide* bar turns amber if you linger.
 
 ---
 
-<!-- timing-slide {"minutes": 4} -->
+[timing-slide]: # '{ "minutes": 4 }'
 
 ## A deliberately long heading that runs on and on so the console has something awkward to lay out
 
@@ -55,7 +50,7 @@ Checks that long titles do not break anything.
 
 ---
 
-<!-- timing-slide {"minutes": 2} -->
+[timing-slide]: # '{ "minutes": 2 }'
 
 Some slides have no heading at all.
 
@@ -63,7 +58,7 @@ The stamp records `"title": null`.
 
 ---
 
-<!-- timing-slide {"minutes": 8} -->
+[timing-slide]: # '{ "minutes": 8 }'
 
 ## Code in several languages
 
@@ -84,7 +79,7 @@ section { color: rebeccapurple; }
 
 ---
 
-<!-- timing-slide {"minutes": 5} -->
+[timing-slide]: # '{ "minutes": 5 }'
 
 ## Tables and quotes
 
@@ -97,7 +92,7 @@ section { color: rebeccapurple; }
 
 ---
 
-<!-- timing-slide {"minutes": 6} -->
+[timing-slide]: # '{ "minutes": 6 }'
 
 ## Recap
 

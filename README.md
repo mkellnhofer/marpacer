@@ -12,7 +12,7 @@ TODO
 
 ## Speaker notes
 
-Any HTML comment in a slide that is **not** a Marp directive and not a timing stamp is
+Any HTML comment in a slide that is **not** a Marp directive is
 picked up as that slide's notes:
 
 ```markdown
@@ -27,24 +27,28 @@ Comments inside fenced code blocks are left alone — those are HTML being taugh
 
 ## Timing stamps
 
-The plan lives in HTML comments, which Marp treats as presenter notes, so they never
-render onto a slide. A stamp carries only what cannot be derived from the deck itself —
-everything else is computed while parsing, so it cannot fall out of sync with the slides.
-
-One `timing-deck` block per deck, directly after the front matter:
+A stamp is a **link reference definition** — Markdown's own way of writing something no
+renderer shows:
 
 ```
-<!-- timing-deck
-{ "targetMinutes": 45, "note": "where this deck is likely to slip" }
--->
+[timing-deck]: # '{ "targetMinutes": 45, "note": "where this deck is likely to slip" }'
 ```
 
-and one `timing-slide` comment per slide, on a single line, first thing in the slide
-(after a `_class:` directive if the slide has one):
+```
+[timing-slide]: # '{ "minutes": 4 }'
+```
 
-```
-<!-- timing-slide {"minutes": 4} -->
-```
+Nothing references these labels, so Marp draws nothing for them — and because they are
+not HTML comments, no Marp tool can mistake them for speaker notes. The same deck runs
+in `marp -p`, exports to PDF or PPTX, and opens in Marp for VS Code with its plan
+invisible everywhere. No engine, no config file.
+
+The payload is JSON in a single-quoted title, so an apostrophe inside it is escaped as
+`\'`; the parser puts it back before `JSON.parse`.
+
+One stamp per slide, and one `timing-deck` per deck, before the first slide. A stamp
+carries only what cannot be derived from the deck itself — everything else is computed
+while parsing, so it cannot fall out of sync with the slides.
 
 | Stamped         | Meaning                                                 |
 |-----------------|---------------------------------------------------------|
@@ -61,11 +65,9 @@ and one `timing-slide` comment per slide, on a single line, first thing in the s
 | slide `start` / `cumulative` | Running total — where the clock should stand when you enter and leave that slide |
 | slide `title`                | The slide's own heading, or `null` on a slide with none |
 
-One stamp per slide, and one `timing-deck` per deck, before the first slide.
-
 `check` reports what is left to get wrong: a stamp that is not valid JSON, `minutes` or
 `targetMinutes` that is not a number above 0, a slide with no stamp, a slide with two, a
-`timing-deck` comment that turns up twice or sits mid-deck, and any field a stamp no
+`timing-deck` stamp that turns up twice or sits mid-deck, and any field a stamp no
 longer knows — an `index` or `cumulative` left over from an older deck.
 
 ## Themes and rendering

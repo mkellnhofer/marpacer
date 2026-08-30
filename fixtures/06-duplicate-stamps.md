@@ -5,29 +5,19 @@ paginate: true
 footer: '06-duplicate-stamps'
 ---
 
-<!-- timing-deck
-{
-  "targetMinutes": 45,
-  "note": "Intentionally broken: a stamp that turns up twice, once at deck level and once on a slide. The first of each pair wins, but the deck is reported as broken rather than quietly following one of them."
-}
--->
+[timing-deck]: # '{ "targetMinutes": 45, "note": "Intentionally broken: a stamp that turns up twice, once at deck level and once on a slide. The first of each pair wins, but the deck is reported as broken rather than quietly following one of them." }'
 
-<!-- timing-deck
-{
-  "targetMinutes": 90,
-  "note": "The second plan. A deck carries one, so this one never takes effect."
-}
--->
+[timing-deck]: # '{ "targetMinutes": 90, "note": "The second plan. A deck carries one, so this one never takes effect." }'
 
-<!-- timing-slide {"minutes": 3} -->
+[timing-slide]: # '{ "minutes": 3 }'
 
 # Two Plans, One Deck
 
-Two `timing-deck` comments, both where a plan belongs. The first one wins.
+Two `timing-deck` stamps, both where a plan belongs. The first one wins.
 
 ---
 
-<!-- timing-slide {"minutes": 5} -->
+[timing-slide]: # '{ "minutes": 5 }'
 
 ## Which plan is it running on?
 
@@ -36,8 +26,8 @@ as broken instead of quietly following one of the two.
 
 ---
 
-<!-- timing-slide {"minutes": 3} -->
-<!-- timing-slide {"minutes": 30} -->
+[timing-slide]: # '{ "minutes": 3 }'
+[timing-slide]: # '{ "minutes": 30 }'
 
 ## Two stamps on one slide
 
@@ -45,7 +35,7 @@ Which one counts? Neither — a slide carries one.
 
 ---
 
-<!-- timing-slide {"minutes": 4} -->
+[timing-slide]: # '{ "minutes": 4 }'
 
 ## Nothing else is wrong here
 

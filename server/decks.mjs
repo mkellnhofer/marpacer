@@ -1,5 +1,10 @@
 // Reading the decks in a folder: finding them, parsing each one's slides,
 // notes and timing stamps, and checking that those stamps hold together.
+//
+// A stamp is a link reference definition — `[timing-slide]: # '{"minutes": 4}'`
+// — which is Markdown's own way of writing something no renderer shows. Marp
+// draws nothing for it and, unlike an HTML comment, never mistakes it for a
+// speaker note, so the same deck reads clean in any Marp tool.
 
 import { spawn } from 'node:child_process';
 import { readFile, readdir, stat } from 'node:fs/promises';
@@ -7,8 +12,8 @@ import { extname, join, relative, resolve, sep } from 'node:path';
 
 const SKIP_DIRS = new Set(['.git', 'dist', 'node_modules']);
 
-const DECK_RE = /<!-- timing-deck\n([\s\S]*?)\n-->/g;
-const SLIDE_RE = /<!-- timing-slide (\{.*?\}) -->/g;
+const DECK_RE = /^\[timing-deck\]:\s*#\s*'((?:[^'\\]|\\.)*)'\s*$/gm;
+const SLIDE_RE = /^\[timing-slide\]:\s*#\s*'((?:[^'\\]|\\.)*)'\s*$/gm;
 const FRONT_MATTER_RE = /^---\n[\s\S]*?\n---\n/;
 const COMMENT_RE = /<!--([\s\S]*?)-->/g;
 const FENCE_RE = /^```[\s\S]*?^```/gm;
@@ -159,7 +164,7 @@ function parseDeck(src, file = '') {
   } else if (slides.some((slide) => slide.stamped)) {
     const stamped = slides.filter((slide) => slide.stamped).length;
     errors.push(
-      `${stamped} slide${stamped === 1 ? '' : 's'} carry stamps but the deck has no timing-deck comment`,
+      `${stamped} slide${stamped === 1 ? '' : 's'} carry stamps but the deck has no timing-deck stamp`,
     );
   }
 
@@ -195,7 +200,7 @@ function parsePlan(chunks, errors) {
   if (stamps.length === 0) return null;
 
   if (stamps.length > 1)
-    errors.push(`${stamps.length} timing-deck comments — a deck carries one`);
+    errors.push(`${stamps.length} timing-deck stamps — a deck carries one`);
 
   const misplaced = perSlide.flatMap((found, position) =>
     position > 0 && found.length > 0 ? [position + 1] : [],
@@ -203,7 +208,7 @@ function parsePlan(chunks, errors) {
 
   if (misplaced.length > 0)
     errors.push(
-      `timing-deck comment${misplaced.length === 1 ? '' : 's'} on slide${misplaced.length === 1 ? '' : 's'}` +
+      `timing-deck stamp${misplaced.length === 1 ? '' : 's'} on slide${misplaced.length === 1 ? '' : 's'}` +
         ` ${misplaced.join(', ')} — a deck's plan belongs before the first slide`,
     );
 
@@ -211,12 +216,12 @@ function parsePlan(chunks, errors) {
   try {
     plan = JSON.parse(stamps[0]);
   } catch {
-    errors.push('timing-deck comment is not valid JSON');
+    errors.push('timing-deck stamp is not valid JSON');
     return null;
   }
 
   if (plan === null || typeof plan !== 'object' || Array.isArray(plan)) {
-    errors.push('timing-deck comment is not a JSON object');
+    errors.push('timing-deck stamp is not a JSON object');
     return null;
   }
 
@@ -341,7 +346,7 @@ function splitSlides(src) {
 function extractNotes(chunk) {
   return [...chunk.replace(FENCE_RE, '').matchAll(COMMENT_RE)]
     .map((match) => match[1].trim())
-    .filter((text) => text && !text.startsWith('timing-') && !DIRECTIVE_RE.test(text))
+    .filter((text) => text && !DIRECTIVE_RE.test(text))
     .join('\n\n');
 }
 
@@ -351,9 +356,13 @@ function headingOf(chunk) {
   return heading ? heading[1] : null;
 }
 
-/** The stamp bodies in a deck or a slide — more than one is the caller's problem. */
+/**
+ * The stamp bodies in a deck or a slide — more than one is the caller's problem.
+ * A stamp's JSON rides in a single-quoted link title, so an apostrophe inside it
+ * arrives escaped; unescaping here keeps every caller on plain `JSON.parse`.
+ */
 function stampsIn(text, pattern) {
-  return [...text.matchAll(pattern)].map((match) => match[1]);
+  return [...text.matchAll(pattern)].map((match) => match[1].replaceAll("\\'", "'"));
 }
 
 /** Fields a stamp no longer knows — usually left over from an older format. */

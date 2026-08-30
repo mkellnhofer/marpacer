@@ -15,8 +15,8 @@ Each deck exercises something specific.
 | `03-timing-over.md` | 52 minutes against a 45 minute target: the status chip reads `over`, and leaving the clock running turns the buffer red and overruns the whole-slides bar |
 | `04-no-timing.md` | No stamps at all — the console runs without a plan: previews, notes, navigation and the clock, with the plan cards hidden |
 | `05-broken-timing.md` | Every way a single stamp can go wrong: a leftover `cumulative` field, `minutes` that is not a number, a stamp that is not valid JSON, and a slide with no stamp at all. `check` fails on this deck **by design**, and the console lists every problem in a red banner |
-| `06-duplicate-stamps.md` | A stamp that turns up twice, at both levels: two `timing-deck` comments before the first slide, and one slide carrying two `timing-slide` stamps. The first of each pair wins, but the deck is reported as broken rather than quietly following one of them |
-| `07-misplaced-deck-stamp.md` | The deck's only `timing-deck` comment sits on the second slide instead of before the first. It parses, and every other stamp is valid, so the placement is the single error |
+| `06-duplicate-stamps.md` | A stamp that turns up twice, at both levels: two `timing-deck` stamps before the first slide, and one slide carrying two `timing-slide` stamps. The first of each pair wins, but the deck is reported as broken rather than quietly following one of them |
+| `07-misplaced-deck-stamp.md` | The deck's only `timing-deck` stamp sits on the second slide instead of before the first. It parses, and every other stamp is valid, so the placement is the single error |
 | `marp-features.md` | marp-core itself: `<!--fit-->` auto-scaling, MathJax math, highlighted code, a local image from `assets/`, and the custom theme in `themes/`. It carries no timing stamps — what it renders is the point, so it runs in no-plan mode |
 | `built-in-themes/gaia.md`, `built-in-themes/uncover.md` | Marp's built-in themes, and decks in a subfolder |
 | `edge-cases/ümlauts & spaces.md` | Spaces, an ampersand and non-ASCII in the path — URL encoding and the base64url sync id |

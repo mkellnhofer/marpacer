@@ -2,17 +2,12 @@
 marp: true
 theme: default
 paginate: true
-footer: '02-tight-timing'
+footer: '02-timing-tight'
 ---
 
-<!-- timing-deck
-{
-  "targetMinutes": 45,
-  "note": "43 stamped minutes against a 45 minute target: two minutes spare, less than a tenth of the target, so the status reads 'tight' rather than 'ok'."
-}
--->
+[timing-deck]: # '{ "targetMinutes": 45, "note": "43 stamped minutes against a 45 minute target: two minutes spare, less than a tenth of the target, so the status reads \'tight\' rather than \'ok\'." }'
 
-<!-- timing-slide {"minutes": 5} -->
+[timing-slide]: # '{ "minutes": 5 }'
 
 # A Deck With No Room
 
@@ -20,7 +15,7 @@ footer: '02-tight-timing'
 
 ---
 
-<!-- timing-slide {"minutes": 12} -->
+[timing-slide]: # '{ "minutes": 12 }'
 
 ## Where the band sits
 
@@ -31,7 +26,7 @@ minutes here. Two minutes are left, so this deck is inside that band.
 
 ---
 
-<!-- timing-slide {"minutes": 10} -->
+[timing-slide]: # '{ "minutes": 10 }'
 
 ## What to watch
 
@@ -40,7 +35,7 @@ deck still has a usable plan, so every readout stays live.
 
 ---
 
-<!-- timing-slide {"minutes": 8} -->
+[timing-slide]: # '{ "minutes": 8 }'
 
 ## Buffer on a tight plan
 
@@ -49,7 +44,7 @@ pushes the required pace above 1.00×.
 
 ---
 
-<!-- timing-slide {"minutes": 8} -->
+[timing-slide]: # '{ "minutes": 8 }'
 
 ## Recap
 
