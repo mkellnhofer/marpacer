@@ -27,48 +27,38 @@ Comments inside fenced code blocks are left alone — those are HTML being taugh
 
 ## Timing stamps
 
-A stamp is a **link reference definition** — Markdown's own way of writing something no
-renderer shows:
+A deck's timing plan lives in the deck, written as link reference definitions — a piece
+of Markdown that no renderer shows. It never appears on a slide, and never as a speaker
+note.
+
+One stamp per deck, before the first slide:
 
 ```
 [timing-deck]: # '{ "targetMinutes": 45, "note": "where this deck is likely to slip" }'
 ```
 
+and one per slide:
+
 ```
 [timing-slide]: # '{ "minutes": 4 }'
 ```
 
-Nothing references these labels, so Marp draws nothing for them — and because they are
-not HTML comments, no Marp tool can mistake them for speaker notes. The same deck runs
-in `marp -p`, exports to PDF or PPTX, and opens in Marp for VS Code with its plan
-invisible everywhere. No engine, no config file.
+| Field           | Meaning                                           |
+|-----------------|---------------------------------------------------|
+| `targetMinutes` | The slot the deck has to fit, e.g. `45`           |
+| `note`          | Optional: where this deck is likely to slip       |
+| `minutes`       | Estimate for one slide                            |
 
-The payload is JSON in a single-quoted title, so an apostrophe inside it is escaped as
-`\'`; the parser puts it back before `JSON.parse`.
+That is everything you write. Slide numbers, running totals and the deck's estimate are
+worked out from those, so inserting or reordering a slide leaves no stale number behind.
+The console reads the deck as `ok`, `tight` — less than a tenth of the target to spare —
+or `over`.
 
-One stamp per slide, and one `timing-deck` per deck, before the first slide. A stamp
-carries only what cannot be derived from the deck itself — everything else is computed
-while parsing, so it cannot fall out of sync with the slides.
+An apostrophe inside a stamp is written `\'`, because the JSON sits in a single-quoted
+title.
 
-| Stamped         | Meaning                                                 |
-|-----------------|---------------------------------------------------------|
-| `targetMinutes` | The slot the deck has to fit, e.g. `45`                 |
-| `note`          | Optional prose: where this deck is likely to slip       |
-| `minutes`       | Estimate for one slide                                  |
-
-| Computed                     | How                                                    |
-|------------------------------|--------------------------------------------------------|
-| `estimatedMinutes`           | Sum of every slide's `minutes`                         |
-| `remainingMinutes`           | `targetMinutes - estimatedMinutes`                     |
-| `status`                     | `over` past the target · `tight` with less than a tenth of the target to spare · `ok` |
-| slide `index`                | The slide's position in the deck                       |
-| slide `start` / `cumulative` | Running total — where the clock should stand when you enter and leave that slide |
-| slide `title`                | The slide's own heading, or `null` on a slide with none |
-
-`check` reports what is left to get wrong: a stamp that is not valid JSON, `minutes` or
-`targetMinutes` that is not a number above 0, a slide with no stamp, a slide with two, a
-`timing-deck` stamp that turns up twice or sits mid-deck, and any field a stamp no
-longer knows — an `index` or `cumulative` left over from an older deck.
+`marp-presenter check` goes through a folder of decks and exits 1 if any stamp is
+unreadable, missing, duplicated, or not a number.
 
 ## Themes and rendering
 
