@@ -1,0 +1,55 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+# id-token lets the job mint the OIDC token npm checks instead of a secret.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # registry-url is deliberately absent. It makes setup-node write an
+      # .npmrc carrying an _authToken line, and npm then treats authentication
+      # as already configured and never starts the OIDC exchange, so the
+      # publish fails with a 404. npm talks to registry.npmjs.org anyway.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false # a release must not build from a cache
+
+      # Trusted publishing needs npm 11.5.1 or newer. Recording the versions
+      # keeps the next authentication failure diagnosable.
+      - name: Report toolchain versions
+        run: node -v && npm -v
+
+      # A release tagged v1.2.3 that ships 1.2.2 is a mistake worth catching
+      # before it is on the registry, where the version cannot be reused.
+      - name: Check the tag against package.json
+        env:
+          # Read from the release payload, not GITHUB_REF_NAME, which is not
+          # dependable for this event. Via env rather than inline ${{ }}, so a
+          # tag name is data here and never shell syntax.
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          tag="${TAG#v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "Release $TAG ships version $version." >&2
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # Loading the CLI pulls in every server module and marp-core, so a bad
+      # import or a syntax error fails here rather than on someone's machine.
+      - name: Smoke-test the CLI
+        run: node cli.mjs help > /dev/null
+
+      - run: npm publish
