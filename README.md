@@ -1,5 +1,7 @@
 # marpacer
 
+[![npm](https://img.shields.io/npm/v/marpacer)](https://www.npmjs.com/package/marpacer)
+
 **marpacer** is a presenter console for [Marp](https://marp.app/) decks that
 helps you stay on pace while presenting.
 
@@ -33,13 +35,13 @@ buffer, and per-slide and whole-deck progress on the right](https://raw.githubus
 Run it without installing anything:
 
 ```bash
-npx github:mkellnhofer/marpacer serve path/to/decks
+npx marpacer serve path/to/decks
 ```
 
 Or add it to a project, so everyone working on the decks gets the same version:
 
 ```bash
-npm install --save-dev github:mkellnhofer/marpacer
+npm install --save-dev marpacer
 ```
 
 ```json
@@ -55,7 +57,7 @@ npm install --save-dev github:mkellnhofer/marpacer
 executables on `PATH` for its own scripts. To have it everywhere instead:
 
 ```bash
-npm install -g github:mkellnhofer/marpacer
+npm install -g marpacer
 ```
 
 ### Commands
